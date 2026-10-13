@@ -1,16 +1,20 @@
 import {
   APP_VERSION,
-  DEFAULT_FILE_ID,
-  DEFAULT_SHEET_TITLE,
   GROUP_ORDER,
   RATINGS,
-  STORAGE_FILE_KEY,
   STORAGE_THEME_KEY,
 } from "./config.js";
 import { DEMO_TITLE, demoMatrix } from "./demo.js";
 import { bogotaIso, formatFecha, formatLugar, formatPrecio, safeHttpUrl, safeImageUrl } from "./format.js";
-import { configError, createSheetsClient, pickSpreadsheet, pickerConfigError, signIn } from "./google.js";
 import { createMemoryStorage, enqueue, isNetworkError, loadQueue, removeQueued } from "./queue.js";
+import {
+  clearConnection,
+  connectionError,
+  listRows,
+  loadConnection,
+  rateWithRetry,
+  saveConnection,
+} from "./script.js";
 import { commitRatingRetry, createMemoryClient, isUnrated, loadGrid, normalizePreferencia } from "./sheet.js";
 
 const $ = (id) => document.getElementById(id);
@@ -27,12 +31,10 @@ const ESTADO = {
 const state = {
   view: "loading",
   rows: [],
-  fileId: DEFAULT_FILE_ID,
+  connection: null,
   spreadsheetTitle: "",
-  tabTitle: "",
   client: null,
   storage: null,
-  token: "",
   undo: null,
   busy: false,
   flushing: false,
@@ -87,22 +89,11 @@ function show(name) {
   $("rated").hidden = name !== "rated";
 }
 
-function readFileId() {
-  try {
-    const stored = localStorage.getItem(STORAGE_FILE_KEY);
-    return stored && stored.trim() ? stored.trim() : DEFAULT_FILE_ID;
-  } catch {
-    return DEFAULT_FILE_ID;
-  }
-}
-
-function rememberFileId(fileId) {
-  if (demo) return;
-  try { localStorage.setItem(STORAGE_FILE_KEY, fileId); } catch { /* ignore */ }
-}
-
 function queuedJobs() {
-  return loadQueue(state.storage).filter((job) => job.fileId === state.fileId);
+  const jobs = loadQueue(state.storage);
+  if (demo) return jobs.filter((job) => job.fileId === "demo");
+  const endpoint = state.connection?.url;
+  return jobs.filter((job) => job.endpoint === endpoint);
 }
 
 function applyJob(job) {
@@ -124,15 +115,27 @@ function overlayQueue() {
 }
 
 async function refreshRows() {
-  const grid = await loadGrid(state.client, state.fileId);
-  state.rows = grid.rows;
-  state.spreadsheetTitle = grid.spreadsheetTitle || (demo ? DEMO_TITLE : DEFAULT_SHEET_TITLE);
-  state.tabTitle = grid.tabTitle;
-  const missing = ["id", "preferencia", "calificado_en", "comentario_usuario"].filter(
-    (name) => !grid.headers.includes(name),
-  );
-  if (missing.length) {
-    throw Object.assign(new Error("headers"), { code: "headers", missing });
+  if (demo) {
+    const grid = await loadGrid(state.client, "demo");
+    state.rows = grid.rows;
+    state.spreadsheetTitle = grid.spreadsheetTitle || DEMO_TITLE;
+    const missing = ["id", "preferencia", "calificado_en", "comentario_usuario"].filter(
+      (name) => !grid.headers.includes(name),
+    );
+    if (missing.length) throw Object.assign(new Error("headers"), { code: "headers", missing });
+  } else {
+    const body = await listRows(state.connection.url, state.connection.key);
+    if (!body || body.ok !== true || !Array.isArray(body.rows)) {
+      throw Object.assign(new Error(body?.error || "bad_request"), { code: body?.error || "bad_request" });
+    }
+    state.rows = body.rows.map((row) => ({
+      ...row,
+      id: String(row?.id ?? "").trim(),
+      preferencia: normalizePreferencia(row?.preferencia),
+      calificado_en: String(row?.calificado_en ?? ""),
+      comentario_usuario: String(row?.comentario_usuario ?? ""),
+    })).filter((row) => row.id);
+    state.spreadsheetTitle = String(body.title || "Planes");
   }
   overlayQueue();
   render();
@@ -143,7 +146,7 @@ function render() {
   show(state.view === "rated" ? "rated" : "stack");
   const unrated = state.rows.filter(isUnrated);
   const pending = queuedJobs().length;
-  const title = state.spreadsheetTitle || DEFAULT_SHEET_TITLE;
+  const title = state.spreadsheetTitle || "Planes";
   $("subtitle").textContent = pending ? `${title} · ${pending} por enviar` : title;
   $("count").textContent = state.view === "rated"
     ? `${state.rows.length - unrated.length} calificados`
@@ -461,7 +464,8 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
     preferencia: normalizePreferencia(preferencia),
     comentario: String(comentario ?? "").trim(),
     calificado_en: when,
-    fileId: state.fileId,
+    fileId: demo ? "demo" : "",
+    endpoint: state.connection?.url || "",
   };
   try {
     if (navigator.onLine === false) {
@@ -473,15 +477,15 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
       render();
       return;
     }
-    const result = await commitRatingRetry(state.client, {
-      spreadsheetId: state.fileId,
-      eventId: id,
-      preferencia,
-      comentario: job.comentario,
-      calificadoEn: when,
-    });
+    const result = await persistRating(job);
     if (result.ok) {
       removeQueued(state.storage, id);
+      applyJob({
+        ...job,
+        preferencia: result.preferencia ?? job.preferencia,
+        calificado_en: result.calificado_en ?? job.calificado_en,
+        comentario: result.comentario_usuario ?? job.comentario,
+      });
       state.undo = { id, before };
       if (result.retried) toast("La hoja cambió al guardar. Se reintentó una vez.");
       $("comment").value = "";
@@ -492,6 +496,11 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
       toast("Ese plan ya no está en la hoja. Se actualizó la lista.");
       state.undo = null;
       await refreshRows();
+      return;
+    }
+    if (result.reason === "forbidden") {
+      toast("La clave no coincide.");
+      showGate("La clave no coincide.");
       return;
     }
     toast(result.reason === "headers"
@@ -508,14 +517,9 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
       render();
       return;
     }
-    if (err.status === 401) {
-      toast("La sesión de Google venció. Entra otra vez.");
-      showGate();
-      return;
-    }
-    if (err.status === 403 || err.status === 404) {
-      toast("Sin acceso a la hoja. Elígela en el selector para autorizarla.");
-      showGate("Sin acceso a esa hoja. Ábrela con el selector para autorizarla.");
+    if (err.code === "forbidden") {
+      toast("La clave no coincide.");
+      showGate("La clave no coincide.");
       return;
     }
     toast("No se pudo guardar la calificación.");
@@ -527,27 +531,41 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
   }
 }
 
+async function persistRating(job) {
+  if (demo) {
+    return commitRatingRetry(state.client, {
+      spreadsheetId: "demo",
+      eventId: job.id,
+      preferencia: job.preferencia,
+      comentario: job.comentario,
+      calificadoEn: job.calificado_en,
+    });
+  }
+  return rateWithRetry(state.connection.url, state.connection.key, {
+    id: job.id,
+    preferencia: job.preferencia,
+    comentario: job.comentario,
+  });
+}
+
 async function flushQueue() {
-  if (state.flushing || demo) return;
+  if (state.flushing || demo || !state.connection) return;
   const jobs = queuedJobs();
   if (!jobs.length) return;
   state.flushing = true;
   try {
     for (const job of jobs) {
       try {
-        const result = await commitRatingRetry(state.client, {
-          spreadsheetId: state.fileId,
-          eventId: job.id,
-          preferencia: job.preferencia,
-          comentario: job.comentario,
-          calificadoEn: job.calificado_en,
-        });
+        const result = await persistRating(job);
         if (result.ok) {
           removeQueued(state.storage, job.id);
           if (result.retried) toast("La hoja cambió al guardar. Se reintentó una vez.");
         } else if (result.reason === "missing_id") {
           removeQueued(state.storage, job.id);
           toast("Un plan en cola ya no está en la hoja.");
+        } else if (result.reason === "forbidden") {
+          toast("La clave no coincide.");
+          break;
         } else {
           toast("No se pudo guardar una calificación en cola.");
           break;
@@ -638,63 +656,96 @@ function syncEditButtons() {
   });
 }
 
+function messageFor(err) {
+  const code = err?.code || err?.reason;
+  if (code === "forbidden") return "La clave no coincide.";
+  if (code === "headers") return "La primera pestaña no tiene las columnas de calificación.";
+  if (code === "network") return "No se pudo conectar. Revisa la URL /exec.";
+  if (code === "lock") return "La hoja está ocupada. Intenta otra vez.";
+  return "No se pudo conectar con la aplicación web.";
+}
+
+function setFormError(settings, message) {
+  const node = $(settings ? "settings-error" : "gate-error");
+  node.hidden = !message;
+  node.textContent = message || "";
+}
+
 function showGate(message) {
   show("gate");
-  if (message) $("gate-note").textContent = message;
-  $("gate-file").textContent = DEFAULT_SHEET_TITLE;
+  setFormError(false, message || "");
+  $("subtitle").textContent = "Configurar conexión";
+  $("count").textContent = "";
+  const saved = state.connection || loadConnection(state.storage);
+  if (saved && !$("script-url").value) {
+    $("script-url").value = saved.url;
+    $("script-key").value = saved.key;
+  }
   document.documentElement.dataset.ready = "1";
 }
 
-async function openSheet(fileId) {
+async function openConnection(connection) {
   show("loading");
-  state.fileId = fileId;
+  state.connection = { url: connection.url.trim(), key: connection.key };
   state.view = "stack";
   await refreshRows();
-  rememberFileId(fileId);
+  saveConnection(state.storage, state.connection);
   void flushQueue();
 }
 
-async function onSignIn() {
-  const problem = configError();
+function formConnection(settings) {
+  return {
+    url: $(settings ? "settings-url" : "script-url").value.trim(),
+    key: $(settings ? "settings-key" : "script-key").value,
+  };
+}
+
+async function onTestConnection(settings) {
+  const connection = formConnection(settings);
+  const problem = connectionError(connection.url, connection.key);
   if (problem) {
-    toast(problem);
+    setFormError(settings, problem);
     return;
   }
+  const button = $(settings ? "settings-save" : "test-connection");
+  button.disabled = true;
   try {
-    state.token = await signIn({ prompt: "" });
-    await openSheet(readFileId());
+    await openConnection(connection);
+    if (settings) $("settings-dialog").close();
   } catch (err) {
-    if (err.status === 403 || err.status === 404) {
-      showGate("Sin acceso a esa hoja. Ábrela con el selector para autorizarla.");
-      return;
+    const message = messageFor(err);
+    if (settings) setFormError(true, message);
+    else {
+      showGate(message);
+      $("script-url").value = connection.url;
+      $("script-key").value = connection.key;
     }
-    toast("No se pudo entrar con Google.");
-    showGate();
+  } finally {
+    button.disabled = false;
   }
 }
 
-async function onPick() {
+function openSettings() {
   if (demo) {
-    toast("La demo no abre Drive.");
+    toast("La demo no cambia la conexión.");
     return;
   }
-  const problem = pickerConfigError();
-  if (problem) {
-    toast(problem);
-    return;
-  }
-  try {
-    if (!state.token) state.token = await signIn({ prompt: "" });
-    const id = await pickSpreadsheet(state.token);
-    if (!id) {
-      toast("No elegiste ninguna hoja.");
-      return;
-    }
-    await openSheet(id);
-  } catch (err) {
-    if (err.code === "config") toast(err.message);
-    else toast("No se pudo abrir el selector de Drive.");
-  }
+  const current = state.connection || loadConnection(state.storage) || { url: "", key: "" };
+  $("settings-url").value = current.url;
+  $("settings-key").value = current.key;
+  setFormError(true, "");
+  $("settings-dialog").showModal();
+}
+
+function onClearConnection() {
+  clearConnection(state.storage);
+  state.connection = null;
+  state.rows = [];
+  state.undo = null;
+  $("settings-dialog").close();
+  $("script-url").value = "";
+  $("script-key").value = "";
+  showGate("La conexión se olvidó en este navegador.");
 }
 
 async function onRefresh() {
@@ -712,9 +763,11 @@ async function onRefresh() {
 function bindUi() {
   $("theme").addEventListener("click", toggleTheme);
   $("refresh").addEventListener("click", () => { void onRefresh(); });
-  $("pick").addEventListener("click", () => { void onPick(); });
-  $("sign-in").addEventListener("click", () => { void onSignIn(); });
-  $("sign-pick").addEventListener("click", () => { void onPick(); });
+  $("pick").addEventListener("click", () => { openSettings(); });
+  $("test-connection").addEventListener("click", () => { void onTestConnection(false); });
+  $("settings-save").addEventListener("click", () => { void onTestConnection(true); });
+  $("settings-clear").addEventListener("click", onClearConnection);
+  $("settings-cancel").addEventListener("click", () => $("settings-dialog").close());
   $("view").addEventListener("click", () => {
     if (state.view !== "stack" && state.view !== "rated") return;
     state.view = state.view === "rated" ? "stack" : "rated";
@@ -751,7 +804,7 @@ function bindUi() {
     void finishRating(id, preferencia, comentario);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.target.closest("input, textarea") || $("edit-dialog").open) return;
+    if (event.target.closest("input, textarea") || $("edit-dialog").open || $("settings-dialog").open) return;
     if (state.view !== "stack" || state.busy) return;
     const map = {
       ArrowLeft: "no_me_gusta",
@@ -784,7 +837,6 @@ async function boot() {
   if (demo) {
     $("demo-badge").hidden = false;
     state.storage = createMemoryStorage();
-    state.fileId = "demo";
     state.client = createMemoryClient(demoMatrix(), { title: "Eventos", spreadsheetTitle: DEMO_TITLE });
     state.view = "stack";
     await refreshRows();
@@ -797,27 +849,17 @@ async function boot() {
     localStorage.removeItem(probe);
     state.storage = localStorage;
   } catch { /* keep memory storage */ }
-  state.fileId = readFileId();
-  state.client = createSheetsClient({
-    getToken: () => state.token,
-    refreshToken: async () => {
-      state.token = await signIn({ prompt: "none" });
-      return state.token;
-    },
-  });
-  if (configError()) {
-    showGate("Falta el client id de Google en js/config.js. En food-log también está vacío: hay que pegar el mismo client id, la clave de API y el número de proyecto.");
+  const saved = loadConnection(state.storage);
+  if (!saved) {
+    showGate();
     return;
   }
   try {
-    state.token = await signIn({ prompt: "none" });
-    await openSheet(state.fileId);
+    await openConnection(saved);
   } catch (err) {
-    if (err.status === 403 || err.status === 404) {
-      showGate("Sin acceso a esa hoja. Ábrela con el selector para autorizarla. La primera vez hay que elegir «Eventos y planes — Julian y Valen».");
-      return;
-    }
-    showGate();
+    showGate(messageFor(err));
+    $("script-url").value = saved.url;
+    $("script-key").value = saved.key;
   }
 }
 

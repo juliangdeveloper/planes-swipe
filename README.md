@@ -6,6 +6,10 @@ Sitio: <https://juliangdeveloper.github.io/planes-swipe/>
 
 Demo sin Google: <https://juliangdeveloper.github.io/planes-swipe/?demo=1>
 
+## Publicación
+
+Igual que food-log: GitHub Pages sirve la raíz de `main` (hay un `.nojekyll` para que Pages no ignore las carpetas que empiezan por `_` ni pase el HTML por Jekyll). En el repositorio: **Settings → Pages → Build and deployment → Deploy from a branch**, rama `main` y carpeta `/ (root)`. Guarda. La primera visita a la URL de arriba puede tardar un minuto.
+
 ## Hoja
 
 La hoja por defecto es **Eventos y planes — Julian y Valen**, archivo `1_TuTWcX-5_kdocBhsqMqwOQVv5cy_6gwBJnp4bQc_Dg`. El id elegido con el selector de Drive se guarda en `localStorage` (`planes-swipe.file.v1`). Siempre se lee la **primera pestaña** (la de menor `index` en `spreadsheets.get`); el título de esa pestaña no está fijo en el código.

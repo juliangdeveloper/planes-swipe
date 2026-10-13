@@ -27,7 +27,7 @@
         <div class="brand">
           <h1>Planes</h1>
           <div class="badges">
-            <p class="badge" id="version">planes-swipe v0.1.0</p>
+            <p class="badge" id="version">planes-swipe v0.2.0</p>
             <p class="badge demo" id="demo-badge" hidden>Demo</p>
           </div>
         </div>
@@ -42,7 +42,7 @@
           <button class="text-btn" type="button" id="view" aria-pressed="false">Calificados</button>
         </div>
       </div>
-      <button class="sheet-btn" type="button" id="pick" aria-label="Elegir otra hoja">
+      <button class="sheet-btn" type="button" id="pick" aria-label="Conexión">
         <span id="subtitle"></span>
       </button>
       <p class="count" id="count"></p>
@@ -53,11 +53,16 @@
 
       <section id="gate" hidden>
         <div class="gate-card">
-          <h2>Entra para calificar</h2>
-          <p id="gate-note">La hoja por defecto es la. Con el alcance drive.file hay que elegirla una vez en el selector para autorizarla.</p>
-          <p class="file-name" id="gate-file">Eventos y planes</p>
-          <button class="btn primary" type="button" id="sign-in">Entrar con Google</button>
-          <button class="btn" type="button" id="sign-pick">Elegir hoja</button>
+          <h2>Conecta la hoja</h2>
+          <p id="gate-note">Pega la URL que termina en /exec y la clave SECRET. Quedan solo en este navegador.</p>
+          <label class="field">URL de la aplicación
+            <input id="script-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+          </label>
+          <label class="field">Clave
+            <input id="script-key" type="password" autocomplete="off" spellcheck="false">
+          </label>
+          <p class="form-error" id="gate-error" hidden></p>
+          <button class="btn primary" type="button" id="test-connection">Probar conexión</button>
         </div>
       </section>
 
@@ -100,6 +105,22 @@
       <section id="rated" hidden aria-label="Planes calificados"></section>
     </main>
   </div>
+
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <h2 id="settings-title">Conexión</h2>
+    <label class="field">URL de la aplicación
+      <input id="settings-url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://script.google.com/macros/s/…/exec">
+    </label>
+    <label class="field">Clave
+      <input id="settings-key" type="password" autocomplete="off" spellcheck="false">
+    </label>
+    <p class="form-error" id="settings-error" hidden></p>
+    <div class="stack-btns">
+      <button class="btn primary" type="button" id="settings-save">Probar y guardar</button>
+      <button class="btn" type="button" id="settings-clear">Olvidar conexión</button>
+      <button class="btn" type="button" id="settings-cancel">Cerrar</button>
+    </div>
+  </dialog>
 
   <dialog id="edit-dialog" aria-labelledby="edit-title">
     <h2 id="edit-title"></h2>

@@ -1,4 +1,4 @@
-const CACHE = "planes-swipe-v0.1.0";
+const CACHE = "planes-swipe-v0.2.0";
 const ASSETS = [
   "./",
   "./index.html",
@@ -7,7 +7,7 @@ const ASSETS = [
   "./js/format.js",
   "./js/sheet.js",
   "./js/queue.js",
-  "./js/google.js",
+  "./js/script.js",
   "./js/demo.js",
   "./js/app.js",
   "./favicon.svg",

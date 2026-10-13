@@ -218,10 +218,12 @@ main {
 #loading:not([hidden]),
 #gate:not([hidden]) {
   flex: 1;
+  min-height: 0;
   display: grid;
   place-items: center;
   padding: 24px 20px calc(24px + var(--sab));
   text-align: center;
+  overflow: auto;
 }
 
 .loading { color: var(--secondary); }
@@ -239,10 +241,11 @@ main {
   font-size: 28px;
   letter-spacing: -0.03em;
   font-weight: 650;
+  text-align: center;
 }
 
 .gate-card p { margin-top: 10px; color: var(--secondary); }
-.file-name { color: var(--text); font-weight: 600; }
+.form-error { color: #ff3b30; font-size: 13px; }
 
 .btn {
   border: 0;
@@ -591,16 +594,19 @@ dialog h2 { font-size: 22px; letter-spacing: -0.03em; }
 
 .edit-actions button[aria-pressed="true"] { background: var(--blue); color: white; }
 
-.field { display: grid; gap: 6px; color: var(--secondary); font-size: 13px; }
-.field textarea {
+.field { display: grid; gap: 6px; margin-top: 12px; color: var(--secondary); font-size: 13px; text-align: left; }
+.field textarea,
+.field input {
   width: 100%;
   border: 0;
   border-radius: 14px;
-  padding: 10px 12px;
+  padding: 12px;
   background: var(--chip);
   font-size: 16px;
-  resize: none;
 }
+.field textarea { resize: none; padding: 10px 12px; }
+.stack-btns { display: grid; gap: 8px; margin-top: 14px; }
+.stack-btns .btn { width: 100%; margin-top: 0; }
 
 .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 

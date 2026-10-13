@@ -53,6 +53,6 @@ Para cambiarlas, pulsa el nombre de la hoja en la barra: **Probar y guardar** vu
 
 ## Versión
 
-La insignia dice `planes-swipe v0.2.0`.
+La insignia dice `planes-swipe v0.3.0`.
 
 Pruebas: `node --test`.

@@ -165,6 +165,8 @@ function render() {
 function renderStack(unrated) {
   const stack = $("stack");
   const empty = $("empty");
+  const prev = $("comment");
+  const keep = prev ? { id: $("top-card")?.dataset.id, value: prev.value, focused: document.activeElement === prev } : null;
   stack.replaceChildren();
   empty.hidden = unrated.length !== 0;
   stack.hidden = unrated.length === 0;
@@ -172,6 +174,11 @@ function renderStack(unrated) {
     const card = buildCard(row, index);
     stack.append(card);
   });
+  const input = $("comment");
+  if (input && keep && keep.id === unrated[0]?.id) {
+    input.value = keep.value;
+    if (keep.focused) input.focus();
+  }
 }
 
 function buildCard(row, index) {
@@ -240,6 +247,21 @@ function buildCard(row, index) {
   addLink(links, row.link_info, "Más info");
   addLink(links, row.link_entradas, "Entradas");
   if (links.childElementCount) body.append(links);
+  if (index === 0) {
+    body.append(el("p", "more", "Toca para ver todo"));
+    const label = el("label", "comment");
+    label.append(el("span", "sr-only", "Comentario opcional"));
+    const input = document.createElement("input");
+    input.id = "comment";
+    input.type = "text";
+    input.maxLength = 2000;
+    input.placeholder = "Comentario (opcional)";
+    input.enterKeyHint = "done";
+    input.autocomplete = "off";
+    input.addEventListener("keydown", (event) => { if (event.key === "Enter") input.blur(); });
+    label.append(input);
+    body.append(label);
+  }
   card.append(body);
 
   if (index === 0) {
@@ -356,11 +378,12 @@ function bindCard(card) {
   let dragging = false;
   let pointerId = null;
   let armed = "";
+  let moved = 0;
   const photo = card.querySelector(".photo");
 
   card.addEventListener("pointerdown", (event) => {
     if (event.button !== 0 || state.busy) return;
-    if (event.target.closest("a, button, input, textarea")) return;
+    if (event.target.closest("a, button, input, textarea, label")) return;
     dragging = true;
     pointerId = event.pointerId;
     startX = event.clientX;
@@ -368,6 +391,7 @@ function bindCard(card) {
     dx = 0;
     dy = 0;
     armed = "";
+    moved = 0;
     card.setPointerCapture(event.pointerId);
     card.style.animation = "none";
     card.style.transition = "none";
@@ -377,6 +401,7 @@ function bindCard(card) {
     if (!dragging || event.pointerId !== pointerId) return;
     dx = event.clientX - startX;
     dy = event.clientY - startY;
+    moved = Math.max(moved, Math.hypot(dx, dy));
     const rot = Math.max(-16, Math.min(16, dx / 18));
     card.style.transform = `translate(${dx}px, ${dy}px) rotate(${rot}deg)`;
     const dir = dominant(dx, dy);
@@ -393,12 +418,19 @@ function bindCard(card) {
     if (!dragging || (event && pointerId != null && event.pointerId !== pointerId)) return;
     dragging = false;
     const tap = Math.hypot(dx, dy) < 10;
+    if (tap && (moved >= 10 || cancel)) {
+      resetCard(card);
+      return;
+    }
     if (tap && !cancel && photo && event) {
       const rect = photo.getBoundingClientRect();
       if (event.clientY >= rect.top && event.clientY <= rect.bottom && event.clientY <= rect.bottom - 28) {
         const x = event.clientX - rect.left;
         if (x < rect.width * 0.33) stepPhoto(card, -1);
         else if (x > rect.width * 0.67) stepPhoto(card, 1);
+        else openDetail(card.dataset.id);
+      } else {
+        openDetail(card.dataset.id);
       }
       resetCard(card);
       return;
@@ -408,7 +440,7 @@ function bindCard(card) {
     if (!cancel && mag >= 72) {
       const rating = DIR[dir];
       const id = card.dataset.id;
-      const comentario = $("comment").value;
+      const comentario = $("comment")?.value || "";
       state.busy = true;
       fly(card, dir).then(() => finishRating(id, rating, comentario));
       return;
@@ -418,6 +450,38 @@ function bindCard(card) {
 
   card.addEventListener("pointerup", (event) => finish(event, false));
   card.addEventListener("pointercancel", (event) => finish(event, true));
+}
+
+function openDetail(id) {
+  const row = state.rows.find((item) => item.id === id);
+  if (!row) return;
+  $("detail-title").textContent = row.nombre_evento || row.id;
+  const list = $("detail-list");
+  list.replaceChildren();
+  const fields = [
+    ["Fecha", formatFecha(row.fecha_evento) || row.fecha_evento],
+    ["Lugar", row.lugar],
+    ["Ciudad", row.ciudad],
+    ["Departamento", row.departamento],
+    ["Precio", formatPrecio(row.precio) || row.precio],
+    ["Estado", row.estado],
+    ["Para quién", row.para_quien],
+    ["Categoría", row.categoria],
+  ];
+  for (const [label, value] of fields) {
+    if (value == null || String(value).trim() === "") continue;
+    list.append(el("dt", null, label), el("dd", null, String(value)));
+  }
+  $("detail-motivo").textContent = row.motivo_recomendacion || "";
+  $("detail-motivo").hidden = !row.motivo_recomendacion;
+  const links = $("detail-links");
+  links.replaceChildren();
+  addLink(links, row.link_info, "Más info");
+  addLink(links, row.link_entradas, "Entradas");
+  links.hidden = !links.childElementCount;
+  $("detail-dialog").showModal();
+  $("detail-dialog").querySelector(".detail-scroll").scrollTop = 0;
+  $("detail-close").focus();
 }
 
 function dirOf(rating) {
@@ -432,7 +496,7 @@ async function onRate(rating) {
   tick();
   highlight(rating, true);
   const id = card.dataset.id;
-  const comentario = $("comment").value;
+  const comentario = $("comment")?.value || "";
   setStamps(card, dirOf(rating), 1);
   await fly(card, dirOf(rating));
   await finishRating(id, rating, comentario);
@@ -473,7 +537,7 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
       applyJob(job);
       state.undo = { id, before };
       toast("Sin conexión. La calificación queda en cola y se envía al volver.");
-      $("comment").value = "";
+      if ($("comment")) $("comment").value = "";
       render();
       return;
     }
@@ -488,7 +552,7 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
       });
       state.undo = { id, before };
       if (result.retried) toast("La hoja cambió al guardar. Se reintentó una vez.");
-      $("comment").value = "";
+      if ($("comment")) $("comment").value = "";
       try { await refreshRows(); } catch { render(); }
       return;
     }
@@ -513,7 +577,7 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
       applyJob(job);
       state.undo = { id, before };
       toast("Sin conexión. La calificación queda en cola y se envía al volver.");
-      $("comment").value = "";
+      if ($("comment")) $("comment").value = "";
       render();
       return;
     }
@@ -794,6 +858,10 @@ function bindUi() {
     state.editRating = button.dataset.rate;
     syncEditButtons();
   });
+  $("detail-close").addEventListener("click", () => $("detail-dialog").close());
+  $("detail-dialog").addEventListener("click", (event) => {
+    if (event.target === $("detail-dialog")) $("detail-dialog").close();
+  });
   $("edit-cancel").addEventListener("click", () => $("edit-dialog").close());
   $("edit-save").addEventListener("click", () => {
     const id = state.editing;
@@ -804,7 +872,7 @@ function bindUi() {
     void finishRating(id, preferencia, comentario);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.target.closest("input, textarea") || $("edit-dialog").open || $("settings-dialog").open) return;
+    if (event.target.closest("input, textarea") || $("edit-dialog").open || $("settings-dialog").open || $("detail-dialog").open) return;
     if (state.view !== "stack" || state.busy) return;
     const map = {
       ArrowLeft: "no_me_gusta",

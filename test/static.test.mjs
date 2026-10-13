@@ -28,7 +28,7 @@ test("pages assets are relative and the app has no Google sign-in config", () =>
   assert.match(files["index.html"], /href="css\/styles.css"/);
   assert.match(files["index.html"], /src="js\/app.js"/);
   assert.match(files["index.html"], /lang="es-CO"/);
-  assert.match(files["index.html"], /planes-swipe v0\.2\.0/);
+  assert.match(files["index.html"], /planes-swipe v0\.3\.0/);
   assert.match(files["index.html"], /Probar conexión/);
   assert.match(files["index.html"], /Me interesa/);
   assert.doesNotMatch(files["index.html"], /intriga/);
@@ -44,7 +44,7 @@ test("pages assets are relative and the app has no Google sign-in config", () =>
   assert.match(files["README.md"], /Implementar → Nueva implementación → Aplicación web/);
   assert.match(files["README.md"], /Ejecutar como: yo/);
   assert.match(files["README.md"], /Acceso: cualquier usuario/);
-  assert.equal(APP_VERSION, "0.2.0");
+  assert.equal(APP_VERSION, "0.3.0");
   assert.equal(DEFAULT_SHEET_TITLE, "Eventos y planes");
   assert.match(read("js/sheet.js"), /me_intriga/);
   assert.match(files["js/config.js"], /me_interesa/);

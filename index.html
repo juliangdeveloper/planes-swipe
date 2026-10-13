@@ -27,7 +27,7 @@
         <div class="brand">
           <h1>Planes</h1>
           <div class="badges">
-            <p class="badge" id="version">planes-swipe v0.2.0</p>
+            <p class="badge" id="version">planes-swipe v0.3.0</p>
             <p class="badge demo" id="demo-badge" hidden>Demo</p>
           </div>
         </div>
@@ -74,10 +74,6 @@
           <button class="btn" type="button" id="goto-rated">Ver calificados</button>
         </div>
         <div class="composer" id="composer">
-          <label class="comment">
-            <span class="sr-only">Comentario opcional</span>
-            <input id="comment" type="text" maxlength="2000" placeholder="Comentario (opcional)" enterkeyhint="done" autocomplete="off">
-          </label>
           <div class="actions" id="actions">
             <button class="icon-btn undo" type="button" id="undo" disabled aria-label="Deshacer">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8H4V4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 9A8 8 0 1 1 6 17.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
@@ -137,6 +133,16 @@
       <button class="btn" type="button" id="edit-cancel">Cerrar</button>
       <button class="btn primary" type="button" id="edit-save">Guardar</button>
     </div>
+  </dialog>
+
+  <dialog id="detail-dialog" class="detail" aria-labelledby="detail-title">
+    <div class="detail-scroll">
+      <h2 id="detail-title"></h2>
+      <dl class="detail-list" id="detail-list"></dl>
+      <p class="detail-motivo" id="detail-motivo"></p>
+      <p class="links" id="detail-links"></p>
+    </div>
+    <button class="btn primary" type="button" id="detail-close" autofocus>Cerrar</button>
   </dialog>
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>

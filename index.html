@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es-CO">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f2f2f7">
+  <meta name="description" content="Califica eventos y planes de Julian y Valen, estilo Tinder, desde una hoja de cálculo.">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Planes</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.json">
+  <link rel="stylesheet" href="css/styles.css">
+  <script>
+    try {
+      var theme = localStorage.getItem("planes-swipe.theme");
+      if (theme === "light" || theme === "dark") document.documentElement.dataset.theme = theme;
+    } catch (e) {}
+  </script>
+</head>
+<body>
+  <a class="skip" href="#stack">Saltar al plan</a>
+  <div class="app">
+    <header class="bar">
+      <div class="bar-row">
+        <div class="brand">
+          <h1>Planes</h1>
+          <div class="badges">
+            <p class="badge" id="version">planes-swipe v0.1.0</p>
+            <p class="badge demo" id="demo-badge" hidden>Demo</p>
+          </div>
+        </div>
+        <div class="bar-actions">
+          <button class="icon-btn" type="button" id="refresh" aria-label="Actualizar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-2.2-5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M20 4v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <button class="icon-btn" type="button" id="theme" aria-label="Cambiar tema">
+            <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 3.2A8.5 8.5 0 1 0 20.8 14 7 7 0 0 1 16 3.2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+            <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M4.8 4.8l1.6 1.6M17.6 17.6l1.6 1.6M19.2 4.8l-1.6 1.6M6.4 17.6l-1.6 1.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+          <button class="text-btn" type="button" id="view" aria-pressed="false">Calificados</button>
+        </div>
+      </div>
+      <button class="sheet-btn" type="button" id="pick" aria-label="Elegir otra hoja">
+        <span id="subtitle"></span>
+      </button>
+      <p class="count" id="count"></p>
+    </header>
+
+    <main id="main">
+      <p class="loading" id="loading">Cargando…</p>
+
+      <section id="gate" hidden>
+        <div class="gate-card">
+          <h2>Entra para calificar</h2>
+          <p id="gate-note">La hoja por defecto es la de Julian y Valen. Con el alcance drive.file hay que elegirla una vez en el selector para autorizarla.</p>
+          <p class="file-name" id="gate-file">Eventos y planes — Julian y Valen</p>
+          <button class="btn primary" type="button" id="sign-in">Entrar con Google</button>
+          <button class="btn" type="button" id="sign-pick">Elegir hoja</button>
+        </div>
+      </section>
+
+      <section id="stage" hidden>
+        <div class="stack" id="stack"></div>
+        <div class="empty" id="empty" hidden>
+          <h2>Ya están todos calificados</h2>
+          <p>Actualiza cuando la hoja se reescriba para ver planes nuevos.</p>
+          <button class="btn" type="button" id="goto-rated">Ver calificados</button>
+        </div>
+        <div class="composer" id="composer">
+          <label class="comment">
+            <span class="sr-only">Comentario opcional</span>
+            <input id="comment" type="text" maxlength="2000" placeholder="Comentario (opcional)" enterkeyhint="done" autocomplete="off">
+          </label>
+          <div class="actions" id="actions">
+            <button class="icon-btn undo" type="button" id="undo" disabled aria-label="Deshacer">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8H4V4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 9A8 8 0 1 1 6 17.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+            </button>
+            <button class="rate no" type="button" data-rate="no_me_gusta">
+              <span class="bubble" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+              <span class="lbl">No me gusta</span>
+            </button>
+            <button class="rate maybe" type="button" data-rate="me_interesa">
+              <span class="bubble" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 5v10M7 11l5 6 5-6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+              <span class="lbl">Me interesa</span>
+            </button>
+            <button class="rate yes" type="button" data-rate="me_gusta">
+              <span class="bubble" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 19s-7-4.4-7-9a4 4 0 0 1 7-2 4 4 0 0 1 7 2c0 4.6-7 9-7 9z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+              <span class="lbl">Me gusta</span>
+            </button>
+            <button class="rate love" type="button" data-rate="me_encanta">
+              <span class="bubble" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 4l1.8 4.6L18.7 9l-3.6 3.1.1 5.1L12 15.8 8.8 17.2l.1-5.1L5.3 9l4.9-.4z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg></span>
+              <span class="lbl">Me encanta</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section id="rated" hidden aria-label="Planes calificados"></section>
+    </main>
+  </div>
+
+  <dialog id="edit-dialog" aria-labelledby="edit-title">
+    <h2 id="edit-title"></h2>
+    <div class="edit-actions" id="edit-actions">
+      <button type="button" data-rate="no_me_gusta">No me gusta</button>
+      <button type="button" data-rate="me_interesa">Me interesa</button>
+      <button type="button" data-rate="me_gusta">Me gusta</button>
+      <button type="button" data-rate="me_encanta">Me encanta</button>
+    </div>
+    <label class="field">Comentario
+      <textarea id="edit-comment" maxlength="2000" rows="3"></textarea>
+    </label>
+    <div class="row">
+      <button class="btn" type="button" id="edit-cancel">Cerrar</button>
+      <button class="btn primary" type="button" id="edit-save">Guardar</button>
+    </div>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <noscript><p class="gate-card noscript">Activa JavaScript para calificar los planes.</p></noscript>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

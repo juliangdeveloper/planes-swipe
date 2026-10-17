@@ -107,6 +107,7 @@ test("rates by id at write time and only touches the three rating cells", () => 
   assert.equal(env.values[1][column("preferencia")], "me_gusta");
   assert.equal(env.values[2][column("nombre_evento")], "Feria del libro");
   assert.equal(env.values[2][column("precio")], "45000");
+  assert.equal(env.values[2][column("quiero ir")], "");
   assert.deepEqual(
     env.writes.map((write) => write.col).sort((a, b) => a - b),
     [column("preferencia") + 1, column("calificado_en") + 1, column("comentario_usuario") + 1].sort((a, b) => a - b),
@@ -145,6 +146,103 @@ test("clears a rating, rejects unknown values, and verifies the write", () => {
 
   const locked = createEnv({ rows: [sampleRow()], lockMode: "timeout" });
   assert.equal(post(locked, { action: "rate", id: "EV-001", preferencia: "me_gusta" }).error, "lock");
+  assert.equal(locked.locks.includes("releaseLock"), false);
+  assert.equal(locked.writes.length, 0);
+});
+
+test("lists quiero ir from booleans and text without touching the cell", () => {
+  const env = createEnv({
+    rows: [
+      sampleRow({ id: "EV-001" }),
+      sampleRow({ id: "EV-002", "quiero ir": "TRUE" }),
+      sampleRow({ id: "EV-003", "quiero ir": "FALSE" }),
+    ],
+  });
+  env.values[1][column("quiero ir")] = true;
+  env.values[2][column("quiero ir")] = "TRUE";
+  env.values[3][column("quiero ir")] = false;
+  const listed = payload(env.doGet({ parameter: { action: "list", key: "s3cret" } }));
+  assert.deepEqual(listed.rows.map((row) => row["quiero ir"]), ["TRUE", "TRUE", "FALSE"]);
+  assert.equal(env.values[1][column("quiero ir")], true);
+  assert.equal(env.writes.length, 0);
+});
+
+test("quiero ir writes only that cell and ratings do not clear it", () => {
+  const env = createEnv({
+    rows: [sampleRow({
+      preferencia: "me_gusta",
+      calificado_en: "2026-10-01T10:00:00-05:00",
+      comentario_usuario: "antes",
+    })],
+  });
+  env.values[1][column("quiero ir")] = false;
+  const marked = post(env, { action: "quiero", id: "EV-001", quiero_ir: true });
+  assert.equal(marked.ok, true);
+  assert.equal(marked["quiero ir"], "TRUE");
+  assert.equal(env.values[1][column("quiero ir")], true);
+  assert.equal(env.values[1][column("preferencia")], "me_gusta");
+  assert.equal(env.values[1][column("calificado_en")], "2026-10-01T10:00:00-05:00");
+  assert.equal(env.values[1][column("comentario_usuario")], "antes");
+  assert.equal(env.values[1][column("nombre_evento")], "Feria del libro");
+  assert.deepEqual(env.writes.map((write) => write.col), [column("quiero ir") + 1]);
+
+  env.writes.length = 0;
+  const rated = post(env, {
+    action: "rate",
+    id: "EV-001",
+    preferencia: "me_encanta",
+    comentario_usuario: "vamos",
+    quiero_ir: false,
+  });
+  assert.equal(rated.ok, true);
+  assert.equal(rated.preferencia, "me_encanta");
+  assert.equal(env.values[1][column("quiero ir")], true);
+  assert.ok(env.writes.every((write) => write.col !== column("quiero ir") + 1));
+
+  env.values[1][column("preferencia")] = "";
+  env.values[1][column("calificado_en")] = "";
+  env.values[1][column("comentario_usuario")] = "";
+  const relisted = payload(env.doGet({ parameter: { action: "list", key: "s3cret" } }));
+  assert.equal(relisted.rows[0].preferencia, "");
+  assert.equal(relisted.rows[0].calificado_en, "");
+  assert.equal(relisted.rows[0]["quiero ir"], "TRUE");
+
+  const cleared = post(env, { action: "quiero", id: "EV-001", quiero_ir: false });
+  assert.equal(cleared.ok, true);
+  assert.equal(cleared["quiero ir"], "FALSE");
+  assert.equal(env.values[1][column("quiero ir")], false);
+  assert.equal(env.values[1][column("preferencia")], "");
+  assert.equal(env.values[1][column("comentario_usuario")], "");
+});
+
+test("quiero ir rejects a bad body, a missing row, and verifies the write", () => {
+  const invalid = createEnv({ rows: [sampleRow()] });
+  assert.equal(post(invalid, { action: "quiero", id: "EV-001" }).error, "bad_request");
+  assert.equal(post(invalid, { action: "quiero", id: "EV-001", quiero_ir: "quizás" }).error, "bad_request");
+  assert.equal(post(invalid, { action: "otro", id: "EV-001" }).error, "bad_request");
+  assert.equal(invalid.writes.length, 0);
+  assert.equal(invalid.locks.length, 0);
+  assert.equal(post(invalid, { action: "quiero", id: "EV-404", quiero_ir: true }).error, "missing_id");
+  assert.equal(invalid.writes.length, 0);
+
+  const renamed = createEnv({ rows: [sampleRow()] });
+  renamed.values[0][column("quiero ir")] = "otra_cosa";
+  assert.equal(post(renamed, { action: "quiero", id: "EV-001", quiero_ir: true }).error, "headers");
+  assert.equal(renamed.writes.length, 0);
+  assert.equal(post(renamed, { action: "rate", id: "EV-001", preferencia: "me_gusta" }).ok, true);
+  assert.equal(renamed.values[1][column("preferencia")], "me_gusta");
+
+  const flaky = createEnv({ rows: [sampleRow()], failQuiero: 1 });
+  const mismatch = post(flaky, { action: "quiero", id: "EV-001", quiero_ir: true });
+  assert.equal(mismatch.error, "mismatch");
+  assert.notEqual(flaky.values[1][column("quiero ir")], true);
+  const retried = post(flaky, { action: "quiero", id: "EV-001", quiero_ir: true });
+  assert.equal(retried.ok, true);
+  assert.equal(flaky.values[1][column("quiero ir")], true);
+  assert.equal(flaky.values[1][column("preferencia")], "");
+
+  const locked = createEnv({ rows: [sampleRow()], lockMode: "timeout" });
+  assert.equal(post(locked, { action: "quiero", id: "EV-001", quiero_ir: true }).error, "lock");
   assert.equal(locked.locks.includes("releaseLock"), false);
   assert.equal(locked.writes.length, 0);
 });

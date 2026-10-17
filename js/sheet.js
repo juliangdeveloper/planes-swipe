@@ -1,4 +1,4 @@
-import { RATINGS } from "./config.js";
+import { QUIERO_HEADER, RATINGS } from "./config.js";
 
 const RATING_IDS = new Set(["", ...RATINGS.map((rating) => rating.id)]);
 const NEEDED = ["id", "preferencia", "calificado_en", "comentario_usuario"];
@@ -7,6 +7,16 @@ const NEEDED = ["id", "preferencia", "calificado_en", "comentario_usuario"];
 export function normalizePreferencia(value) {
   const text = String(value ?? "").trim();
   return text === "me_intriga" ? "me_interesa" : text;
+}
+
+// Sheets stores the flag as a boolean, which displays as TRUE/FALSE.
+export function isQuieroIr(value) {
+  if (value === true) return true;
+  return String(value ?? "").trim().toLowerCase() === "true";
+}
+
+export function quieroText(value) {
+  return isQuieroIr(value) ? "TRUE" : "FALSE";
 }
 
 export function columnLetter(index) {
@@ -46,7 +56,12 @@ export function rowsFromValues(values) {
     const row = {};
     headers.forEach((header, column) => {
       if (!header || Object.prototype.hasOwnProperty.call(row, header)) return;
-      const text = String(line[column] ?? "").trim();
+      const raw = line[column] ?? "";
+      if (header === QUIERO_HEADER) {
+        row[header] = quieroText(raw);
+        return;
+      }
+      const text = String(raw).trim();
       row[header] = header === "preferencia" ? normalizePreferencia(text) : text;
     });
     if (row.id) rows.push(row);
@@ -128,6 +143,43 @@ export async function commitRatingRetry(client, args) {
   const first = await commitRating(client, args);
   if (first.ok || first.reason !== "mismatch") return { ...first, attempts: 1, retried: false };
   const second = await commitRating(client, args);
+  return { ...second, attempts: 2, retried: true };
+}
+
+export async function commitQuiero(client, { spreadsheetId, eventId, quiero }) {
+  if (typeof quiero !== "boolean") return { ok: false, reason: "bad_request" };
+  const meta = await client.getSpreadsheet(spreadsheetId);
+  const tabTitle = firstSheetTitle(meta);
+  const quoted = quoteSheet(tabTitle);
+  const [headerGot] = await client.batchGet(spreadsheetId, [`${quoted}!1:1`]);
+  const headers = (headerGot?.values?.[0] || []).map((cell) => String(cell ?? "").trim().toLowerCase());
+  const idColumn = headerIndex(headers, "id");
+  const quieroColumn = headerIndex(headers, QUIERO_HEADER);
+  if (idColumn < 0 || quieroColumn < 0) return { ok: false, reason: "headers" };
+
+  const idRange = `${quoted}!${columnLetter(idColumn)}:${columnLetter(idColumn)}`;
+  const [idGot] = await client.batchGet(spreadsheetId, [idRange]);
+  const rowNumber = findRowNumber(idGot?.values || [], eventId);
+  if (!rowNumber) return { ok: false, reason: "missing_id" };
+
+  const written = quieroText(quiero);
+  const range = `${quoted}!${columnLetter(quieroColumn)}${rowNumber}`;
+  await client.batchUpdate(spreadsheetId, [{ range, values: [[written]] }]);
+
+  const [verified] = await client.batchGet(spreadsheetId, [range]);
+  const got = quieroText(verified?.values?.[0]?.[0] ?? "");
+  return {
+    ok: got === written,
+    reason: got === written ? "ok" : "mismatch",
+    row: rowNumber,
+    [QUIERO_HEADER]: got,
+  };
+}
+
+export async function commitQuieroRetry(client, args) {
+  const first = await commitQuiero(client, args);
+  if (first.ok || first.reason !== "mismatch") return { ...first, attempts: 1, retried: false };
+  const second = await commitQuiero(client, args);
   return { ...second, attempts: 2, retried: true };
 }
 

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import test from "node:test";
 import { HEADERS } from "../js/config.js";
-import { connectionError, listRows, rateWithRetry } from "../js/script.js";
+import { connectionError, listRows, quieroWithRetry, rateWithRetry } from "../js/script.js";
 import { createEnv, payload } from "./gas-harness.mjs";
 
 function row() {
@@ -76,6 +76,34 @@ test("the client lists with GET and retries a mismatched rating once", async () 
     assert.equal(env.values[1][HEADERS.indexOf("preferencia")], "me_gusta");
     assert.equal(env.values[1][HEADERS.indexOf("nombre_evento")], "Feria del libro");
     assert.equal(payload(env.doGet({ parameter: { action: "list", key: "s3cret" } })).rows[0].comentario_usuario, "hola");
+  } finally {
+    server.close();
+  }
+});
+
+test("the client posts quiero ir and retries a mismatch once", async () => {
+  const env = createEnv({ rows: [row()], failQuiero: 1 });
+  env.values[1][HEADERS.indexOf("preferencia")] = "me_gusta";
+  env.values[1][HEADERS.indexOf("calificado_en")] = "2026-10-01T10:00:00-05:00";
+  env.values[1][HEADERS.indexOf("comentario_usuario")] = "queda";
+  const posts = [];
+  const server = await listen(env, posts);
+  try {
+    const url = `http://127.0.0.1:${server.address().port}/exec`;
+    const saved = await quieroWithRetry(url, "s3cret", { id: "EV-001", quiero: true });
+    assert.equal(saved.ok, true);
+    assert.equal(saved.retried, true);
+    assert.equal(saved.attempts, 2);
+    assert.equal(saved["quiero ir"], "TRUE");
+    assert.equal(posts.length, 2);
+    assert.match(posts[0].type, /^text\/plain/i);
+    assert.equal(JSON.parse(posts[0].body).action, "quiero");
+    assert.equal(JSON.parse(posts[0].body).quiero_ir, true);
+    assert.equal(JSON.parse(posts[1].body).quiero_ir, true);
+    assert.equal(env.values[1][HEADERS.indexOf("quiero ir")], true);
+    assert.equal(env.values[1][HEADERS.indexOf("preferencia")], "me_gusta");
+    assert.equal(env.values[1][HEADERS.indexOf("calificado_en")], "2026-10-01T10:00:00-05:00");
+    assert.equal(env.values[1][HEADERS.indexOf("comentario_usuario")], "queda");
   } finally {
     server.close();
   }

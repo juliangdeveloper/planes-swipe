@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { HEADERS, QUIERO_HEADER } from "../js/config.js";
 import { bogotaIso, formatFecha, formatPrecio } from "../js/format.js";
-import { createMemoryStorage, enqueue, loadQueue } from "../js/queue.js";
+import { createMemoryStorage, enqueue, enqueueQuiero, loadQueue, loadQuieroQueue } from "../js/queue.js";
 import {
   columnLetter,
+  commitQuieroRetry,
   commitRatingRetry,
   createMemoryClient,
   firstSheetTitle,
@@ -178,6 +180,102 @@ test("first tab is the lowest index, not the first array entry", () => {
   assert.equal(columnLetter(26), "AA");
 });
 
+test("quiero ir is column V and is read from booleans", () => {
+  assert.equal(HEADERS.indexOf(QUIERO_HEADER), 21);
+  assert.equal(columnLetter(HEADERS.indexOf(QUIERO_HEADER)), "V");
+  const parsed = rowsFromValues([
+    ["id", "quiero ir", "preferencia"],
+    ["EV-001", true, ""],
+    ["EV-002", false, "me_gusta"],
+    ["EV-003", "TRUE", ""],
+    ["EV-004", "FALSE", ""],
+  ]);
+  assert.deepEqual(parsed.rows.map((row) => row["quiero ir"]), ["TRUE", "FALSE", "TRUE", "FALSE"]);
+  assert.equal(parsed.rows[1].preferencia, "me_gusta");
+});
+
+test("quiero ir writes by header name and a rating does not clear it", async () => {
+  const matrix = [
+    ["quiero ir", "precio", "id", "preferencia", "calificado_en", "comentario_usuario"],
+    ["FALSE", "10", "EV-001", "me_gusta", "2026-10-13T13:30:00-05:00", "hola"],
+    ["TRUE", "20", "EV-002", "", "", ""],
+  ];
+  const client = createMemoryClient(matrix, { title: "Primera" });
+  const off = await commitQuieroRetry(client, { spreadsheetId: "file", eventId: "EV-002", quiero: false });
+  assert.equal(off.ok, true);
+  assert.equal(off.retried, false);
+  let snap = client.snapshot();
+  assert.equal(snap[2][0], "FALSE");
+  assert.equal(snap[2][2], "EV-002");
+  assert.equal(snap[2][3], "");
+  assert.equal(snap[1][0], "FALSE");
+  assert.equal(snap[1][3], "me_gusta");
+
+  const rated = await commitRatingRetry(client, {
+    spreadsheetId: "file",
+    eventId: "EV-002",
+    preferencia: "me_encanta",
+    comentario: "vamos",
+    calificadoEn: "2026-10-14T09:00:00-05:00",
+  });
+  assert.equal(rated.ok, true);
+  snap = client.snapshot();
+  assert.equal(snap[2][0], "FALSE");
+  assert.equal(snap[2][3], "me_encanta");
+  assert.equal(snap[2][4], "2026-10-14T09:00:00-05:00");
+  assert.equal(snap[2][5], "vamos");
+  assert.equal(snap[1][0], "FALSE");
+  assert.equal(snap[1][3], "me_gusta");
+  assert.equal(snap[1][4], "2026-10-13T13:30:00-05:00");
+  assert.equal(snap[1][5], "hola");
+
+  const on = await commitQuieroRetry(client, { spreadsheetId: "file", eventId: "EV-001", quiero: true });
+  assert.equal(on.ok, true);
+  snap = client.snapshot();
+  assert.equal(snap[1][0], "TRUE");
+  assert.equal(snap[1][3], "me_gusta");
+  assert.equal(snap[1][4], "2026-10-13T13:30:00-05:00");
+  assert.equal(snap[1][5], "hola");
+  assert.equal(snap[2][3], "me_encanta");
+});
+
+test("a missing quiero ir column or id is not written", async () => {
+  let writes = 0;
+  const client = {
+    async getSpreadsheet() {
+      return { sheets: [{ properties: { title: "Hoja", index: 0 } }] };
+    },
+    async batchGet(_id, ranges) {
+      return ranges.map((range) => {
+        if (range.endsWith("!1:1")) return { values: [["id", "preferencia", "calificado_en", "comentario_usuario"]] };
+        return { values: [["id"], ["EV-001"]] };
+      });
+    },
+    async batchUpdate() {
+      writes += 1;
+    },
+  };
+  const missingHeader = await commitQuieroRetry(client, { spreadsheetId: "abc", eventId: "EV-001", quiero: true });
+  assert.equal(missingHeader.ok, false);
+  assert.equal(missingHeader.reason, "headers");
+  assert.equal(missingHeader.retried, false);
+  const missingId = await commitQuieroRetry({
+    ...client,
+    async batchGet(_id, ranges) {
+      return ranges.map((range) => {
+        if (range.endsWith("!1:1")) return { values: [["precio", "quiero ir", "id"]] };
+        return { values: [["id"], ["EV-001"]] };
+      });
+    },
+  }, { spreadsheetId: "abc", eventId: "EV-404", quiero: true });
+  assert.equal(missingId.ok, false);
+  assert.equal(missingId.reason, "missing_id");
+  assert.equal(missingId.retried, false);
+  assert.equal(writes, 0);
+  const bad = await commitQuieroRetry(client, { spreadsheetId: "abc", eventId: "EV-001", quiero: "TRUE" });
+  assert.equal(bad.reason, "bad_request");
+});
+
 test("offline queue keeps the latest rating per id", () => {
   const storage = createMemoryStorage();
   enqueue(storage, { id: "EV-001", preferencia: "me_gusta", comentario: "", calificado_en: "a", fileId: "demo" });
@@ -186,4 +284,9 @@ test("offline queue keeps the latest rating per id", () => {
   const jobs = loadQueue(storage);
   assert.equal(jobs.length, 2);
   assert.equal(jobs.find((job) => job.id === "EV-001").preferencia, "me_interesa");
+  enqueueQuiero(storage, { id: "EV-001", quiero: true, endpoint: "https://script.google.com/macros/s/abc/exec" });
+  enqueueQuiero(storage, { id: "EV-001", quiero: false, endpoint: "https://script.google.com/macros/s/abc/exec" });
+  enqueue(storage, { id: "EV-001", preferencia: "me_gusta", comentario: "", calificado_en: "d", fileId: "demo" });
+  assert.equal(loadQueue(storage).find((job) => job.id === "EV-001").preferencia, "me_gusta");
+  assert.equal(loadQuieroQueue(storage).find((job) => job.id === "EV-001").quiero, false);
 });

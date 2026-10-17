@@ -1,4 +1,4 @@
-import { STORAGE_QUEUE_KEY } from "./config.js";
+import { STORAGE_QUEUE_KEY, STORAGE_QUIERO_KEY } from "./config.js";
 
 function validJob(job) {
   return Boolean(job && typeof job.id === "string" && job.id.trim() && typeof job.preferencia === "string");
@@ -42,4 +42,36 @@ export function removeQueued(storage, id) {
 export function isNetworkError(err) {
   if (!err || err.status) return false;
   return err.code === "network" || err.name === "TypeError";
+}
+
+function validQuieroJob(job) {
+  return Boolean(job && typeof job.id === "string" && job.id.trim() && typeof job.quiero === "boolean");
+}
+
+export function loadQuieroQueue(storage) {
+  if (!storage) return [];
+  try {
+    const raw = JSON.parse(storage.getItem(STORAGE_QUIERO_KEY) || "[]");
+    return Array.isArray(raw) ? raw.filter(validQuieroJob) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function enqueueQuiero(storage, job) {
+  const jobs = loadQuieroQueue(storage).filter((item) => item.id !== job.id);
+  jobs.push({
+    id: String(job.id).trim(),
+    quiero: job.quiero === true,
+    endpoint: typeof job.endpoint === "string" ? job.endpoint : "",
+    fileId: typeof job.fileId === "string" ? job.fileId : "",
+  });
+  storage.setItem(STORAGE_QUIERO_KEY, JSON.stringify(jobs));
+  return jobs;
+}
+
+export function removeQuiero(storage, id) {
+  const jobs = loadQuieroQueue(storage).filter((item) => item.id !== id);
+  storage.setItem(STORAGE_QUIERO_KEY, JSON.stringify(jobs));
+  return jobs;
 }

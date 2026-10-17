@@ -14,6 +14,7 @@ var RATING_VALUES_ = {
 };
 
 var NEEDED_HEADERS_ = ["id", "preferencia", "calificado_en", "comentario_usuario"];
+var QUIERO_HEADER_ = "quiero ir";
 
 function doGet(e) {
   var params = (e && e.parameter) || {};
@@ -30,9 +31,10 @@ function doPost(e) {
   var body = parseBody_(e);
   if (!body) return json_({ ok: false, error: "bad_request" });
   if (!authorized_(body.key)) return json_({ ok: false, error: "forbidden" });
-  if (body.action !== "rate") return json_({ ok: false, error: "bad_request" });
   try {
-    return json_(rate_(body));
+    if (body.action === "rate") return json_(rate_(body));
+    if (body.action === "quiero") return json_(quiero_(body));
+    return json_({ ok: false, error: "bad_request" });
   } catch (err) {
     return json_({ ok: false, error: "server" });
   }
@@ -74,6 +76,25 @@ function parseBody_(e) {
 function normalizePreferencia_(value) {
   var text = String(value == null ? "" : value).trim();
   return text === "me_intriga" ? "me_interesa" : text;
+}
+
+function isQuieroIr_(value) {
+  if (value === true) return true;
+  return String(value == null ? "" : value).trim().toLowerCase() === "true";
+}
+
+function quieroText_(value) {
+  return isQuieroIr_(value) ? "TRUE" : "FALSE";
+}
+
+function parseQuiero_(value) {
+  if (value === true || value === false) return value;
+  if (typeof value === "string") {
+    var text = value.trim().toLowerCase();
+    if (text === "true") return true;
+    if (text === "false") return false;
+  }
+  return null;
 }
 
 function bogotaIso_() {
@@ -123,6 +144,10 @@ function rowObject_(headers, line) {
   for (var c = 0; c < headers.length; c += 1) {
     var name = headers[c];
     if (!name || Object.prototype.hasOwnProperty.call(row, name)) continue;
+    if (name === QUIERO_HEADER_) {
+      row[name] = quieroText_(line ? line[c] : "");
+      continue;
+    }
     var text = cellText_(line ? line[c] : "");
     row[name] = name === "preferencia" ? normalizePreferencia_(text) : text;
   }
@@ -185,6 +210,38 @@ function rate_(body) {
       calificado_en: gotWhen,
       comentario_usuario: gotComment,
     };
+  } catch (err) {
+    if (!held) return { ok: false, error: "lock" };
+    return { ok: false, error: "server" };
+  } finally {
+    if (held) lock.releaseLock();
+  }
+}
+
+function quiero_(body) {
+  if (!Object.prototype.hasOwnProperty.call(body, "quiero_ir")) return { ok: false, error: "bad_request" };
+  var want = parseQuiero_(body.quiero_ir);
+  if (want === null) return { ok: false, error: "bad_request" };
+  var id = String(body.id == null ? "" : body.id).trim();
+  if (!id) return { ok: false, error: "missing_id" };
+
+  var lock = LockService.getScriptLock();
+  var held = false;
+  try {
+    lock.waitLock(30000);
+    held = true;
+    var ctx = readContext_();
+    if (!ctx.ok) return ctx;
+    if (!ctx.map[QUIERO_HEADER_]) return { ok: false, error: "headers" };
+    var row = findRow_(ctx, id);
+    if (!row) return { ok: false, error: "missing_id" };
+    ctx.sheet.getRange(row, ctx.map[QUIERO_HEADER_]).setValue(want);
+    SpreadsheetApp.flush();
+    var got = ctx.sheet.getRange(row, ctx.map[QUIERO_HEADER_]).getValue();
+    if (isQuieroIr_(got) !== want) return { ok: false, error: "mismatch", id: id };
+    var result = { ok: true, id: id };
+    result[QUIERO_HEADER_] = quieroText_(got);
+    return result;
   } catch (err) {
     if (!held) return { ok: false, error: "lock" };
     return { ok: false, error: "server" };

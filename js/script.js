@@ -102,3 +102,35 @@ export async function rateWithRetry(url, key, rating) {
   const second = asResult(await sendRating(url, key, rating));
   return { ...second, attempts: 2, retried: true };
 }
+
+export async function sendQuiero(url, key, { id, quiero }) {
+  const body = JSON.stringify({
+    key,
+    action: "quiero",
+    id,
+    quiero_ir: quiero === true,
+  });
+  return request(url, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=UTF-8" },
+    body,
+  });
+}
+
+function asQuiero(body) {
+  if (body && body.ok === true) {
+    return {
+      ok: true,
+      reason: "ok",
+      "quiero ir": body["quiero ir"],
+    };
+  }
+  return { ok: false, reason: body?.error || "server" };
+}
+
+export async function quieroWithRetry(url, key, quiero) {
+  const first = asQuiero(await sendQuiero(url, key, quiero));
+  if (first.ok || first.reason !== "mismatch") return { ...first, attempts: 1, retried: false };
+  const second = asQuiero(await sendQuiero(url, key, quiero));
+  return { ...second, attempts: 2, retried: true };
+}

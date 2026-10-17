@@ -176,6 +176,22 @@ test("app rates through a mocked Apps Script endpoint", { timeout: 120000 }, asy
     assert.ok(metrics.scrollH <= metrics.clientH + 1);
     assert.ok(metrics.scrollW <= metrics.clientW + 1);
 
+    const quieroCol = HEADERS.indexOf("quiero ir");
+    assert.equal(env.values[1][quieroCol], "");
+    assert.equal(env.values[1][HEADERS.indexOf("preferencia")], "");
+    await page.click("#top-card .quiero");
+    for (let attempt = 0; attempt < 50 && env.values[1][quieroCol] !== true; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    assert.equal(env.values[1][quieroCol], true);
+    assert.equal(env.values[1][HEADERS.indexOf("preferencia")], "");
+    assert.equal(env.values[1][HEADERS.indexOf("calificado_en")], "");
+    assert.equal(env.values[1][HEADERS.indexOf("comentario_usuario")], "");
+    assert.match(posts.at(-1).type, /^text\/plain/i);
+    assert.equal(JSON.parse(posts.at(-1).body).action, "quiero");
+    assert.equal(JSON.parse(posts.at(-1).body).quiero_ir, true);
+    assert.equal(await page.$eval("#top-card .quiero", (el) => el.getAttribute("aria-pressed")), "true");
+
     await page.type("#comment", "vamos");
     await page.click('[data-rate="me_gusta"]');
     await page.waitForFunction(() => document.querySelector("#empty") && !document.querySelector("#empty").hidden);
@@ -183,6 +199,7 @@ test("app rates through a mocked Apps Script endpoint", { timeout: 120000 }, asy
     assert.equal(saved.preferencia, "me_gusta");
     assert.match(saved.calificado_en, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}-05:00$/);
     assert.equal(saved.comentario_usuario, "vamos");
+    assert.equal(env.values[1][HEADERS.indexOf("quiero ir")], true);
     assert.equal(saved.nombre_evento, "Feria del libro");
     assert.equal(saved.precio, "45000");
     assert.match(posts.at(-1).type, /^text\/plain/i);
@@ -194,6 +211,7 @@ test("app rates through a mocked Apps Script endpoint", { timeout: 120000 }, asy
     assert.equal(saved.preferencia, "");
     assert.equal(saved.calificado_en, "");
     assert.equal(saved.nombre_evento, "Feria del libro");
+    assert.equal(env.values[1][HEADERS.indexOf("quiero ir")], true);
 
     await page.setOfflineMode(true);
     await page.click('[data-rate="me_encanta"]');
@@ -211,6 +229,7 @@ test("app rates through a mocked Apps Script endpoint", { timeout: 120000 }, asy
     assert.equal(saved.preferencia, "me_encanta");
     assert.equal(saved.comentario_usuario, "");
     assert.equal(saved.precio, "45000");
+    assert.equal(env.values[1][HEADERS.indexOf("quiero ir")], true);
 
     const stored = await page.evaluate(() => localStorage.getItem("planes-swipe.connection.v1"));
     assert.match(stored, /s3cret/);

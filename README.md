@@ -14,9 +14,9 @@ Igual que food-log: GitHub Pages sirve la raíz de `main` (hay un `.nojekyll` pa
 
 ## Hoja
 
-El script va ligado a **Eventos y planes — Julian y Valen**. Siempre usa la primera pestaña: `SpreadsheetApp.getActiveSpreadsheet().getSheets()[0]`. Las columnas se reconocen por el nombre del encabezado: `id`, `fecha_registro`, `nombre_evento`, `categoria`, `fecha_evento`, `ciudad`, `departamento`, `lugar`, `precio`, `estado`, `link_info`, `link_entradas`, `para_quien`, `motivo_recomendacion`, `ultima_revision`, `preferencia`, `calificado_en`, `comentario_usuario`, `imagen_1`, `imagen_2`, `imagen_3`.
+El script va ligado a **Eventos y planes — Julian y Valen**. Siempre usa la primera pestaña: `SpreadsheetApp.getActiveSpreadsheet().getSheets()[0]`. Las columnas se reconocen por el nombre del encabezado: `id`, `fecha_registro`, `nombre_evento`, `categoria`, `fecha_evento`, `ciudad`, `departamento`, `lugar`, `precio`, `estado`, `link_info`, `link_entradas`, `para_quien`, `motivo_recomendacion`, `ultima_revision`, `preferencia`, `calificado_en`, `comentario_usuario`, `imagen_1`, `imagen_2`, `imagen_3`, `quiero ir`.
 
-Al calificar, el script busca la fila por `id` en ese momento (no reutiliza un número de fila) y escribe solo `preferencia`, `calificado_en` y `comentario_usuario`. El resto de las columnas no se toca.
+Al calificar, el script busca la fila por `id` en ese momento (no reutiliza un número de fila) y escribe solo `preferencia`, `calificado_en` y `comentario_usuario`. El resto de las columnas, incluida `quiero ir`, no se toca.
 
 ## Calificaciones
 
@@ -34,6 +34,24 @@ Un `preferencia` vacío es un plan sin calificar. Deshacer envía `preferencia` 
 Después de escribir, el script vuelve a leer esas tres celdas. Si no coinciden, la app reintenta una vez y muestra un aviso. Sin conexión, la calificación entra en la cola `planes-swipe.queue.v1` y se reintenta al volver la red.
 
 La lista llega con `GET ?action=list&key=…`. Calificar es un `POST` con `Content-Type: text/plain` y un JSON `{key, action:'rate', id, preferencia, comentario_usuario}`.
+
+## Quiero ir
+
+El botón **Quiero ir** está en la tarjeta, en el detalle y en cada plan calificado. Marca o desmarca la columna `quiero ir`. No pide una calificación y no escribe `preferencia`, `calificado_en` ni `comentario_usuario`. Calificar tampoco cambia `quiero ir`.
+
+Si otro proceso borra P–R cuando el evento sale a la venta, `quiero ir` se queda. El plan vuelve a la pila sin calificar y el botón sigue como estaba.
+
+El script vuelve a buscar la fila por `id` y la columna por el encabezado `quiero ir` (en la hoja actual es la columna V; si la columna se mueve, sigue encontrándola). Escribe solo esa celda, con un booleano que la hoja muestra como `TRUE` o `FALSE`. El `POST` es `{key, action:'quiero', id, quiero_ir}` con `quiero_ir` en `true` o `false`, también `Content-Type: text/plain`. Sin red, el cambio entra en `planes-swipe.quiero.v1` y no comparte cola con las calificaciones.
+
+Ese `action` es nuevo. GitHub Pages no publica el Apps Script. Hay que sacar una versión nueva de la implementación que ya existe; la URL `/exec` no cambia:
+
+1. Abre la hoja **Eventos y planes — Julian y Valen**.
+2. **Extensiones → Apps Script**.
+3. Sustituye el contenido de `Code.gs` por el de `apps-script/Code.gs` en este repositorio.
+4. **Implementar → Gestionar implementaciones → Editar (el lápiz) → Versión: Nueva versión → Implementar**.
+5. No uses **Nueva implementación**: eso crea otra URL y habría que volver a pegarla en el teléfono.
+
+El sitio estático sí queda publicado solo. Pages sirve la raíz de `main` (no hay otro comando de deploy). Al mezclar el cambio en `main`, el botón llega en cerca de un minuto. Hasta entonces la web en vivo no lo tiene, y hasta el paso 4 el botón avisa que hay que publicar el script.
 
 ## Publicar la aplicación web
 

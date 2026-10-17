@@ -96,6 +96,7 @@ const ROWS = [
     calificado_en: "2026-10-10T19:04:00-05:00",
     comentario_usuario: "Repetir cuando abran la 26",
     imagen_1: "img/park.svg",
+    "quiero ir": "TRUE",
   },
   {
     id: "EV-074",

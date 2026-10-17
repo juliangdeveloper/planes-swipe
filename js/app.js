@@ -6,16 +6,26 @@ import {
 } from "./config.js";
 import { DEMO_TITLE, demoMatrix } from "./demo.js";
 import { bogotaIso, formatFecha, formatLugar, formatPrecio, safeHttpUrl, safeImageUrl } from "./format.js";
-import { createMemoryStorage, enqueue, isNetworkError, loadQueue, removeQueued } from "./queue.js";
+import { createMemoryStorage, enqueue, enqueueQuiero, isNetworkError, loadQueue, loadQuieroQueue, removeQueued, removeQuiero } from "./queue.js";
 import {
   clearConnection,
   connectionError,
   listRows,
   loadConnection,
+  quieroWithRetry,
   rateWithRetry,
   saveConnection,
 } from "./script.js";
-import { commitRatingRetry, createMemoryClient, isUnrated, loadGrid, normalizePreferencia } from "./sheet.js";
+import {
+  commitQuieroRetry,
+  commitRatingRetry,
+  createMemoryClient,
+  isQuieroIr,
+  isUnrated,
+  loadGrid,
+  normalizePreferencia,
+  quieroText,
+} from "./sheet.js";
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -38,9 +48,13 @@ const state = {
   undo: null,
   busy: false,
   flushing: false,
+  flushingQuiero: false,
   editing: "",
   editRating: "",
 };
+
+const quieroHold = new Map();
+const quieroFlight = new Map();
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -114,6 +128,29 @@ function overlayQueue() {
   }
 }
 
+function applyQuieroIntent(serverFlags) {
+  const queued = new Map();
+  if (!demo && state.connection) {
+    for (const job of loadQuieroQueue(state.storage)) {
+      if (job.endpoint === state.connection.url) queued.set(job.id, job.quiero === true);
+    }
+  }
+  const seen = new Set(state.rows.map((row) => row.id));
+  for (const id of [...quieroHold.keys()]) {
+    if (!seen.has(id)) quieroHold.delete(id);
+  }
+  for (const row of state.rows) {
+    if (quieroHold.has(row.id)) {
+      const held = quieroHold.get(row.id);
+      const agreed = serverFlags.get(row.id) === held && !quieroFlight.has(row.id) && !queued.has(row.id);
+      if (agreed) quieroHold.delete(row.id);
+      else row["quiero ir"] = quieroText(held);
+      continue;
+    }
+    if (queued.has(row.id)) row["quiero ir"] = quieroText(queued.get(row.id));
+  }
+}
+
 async function refreshRows() {
   if (demo) {
     const grid = await loadGrid(state.client, "demo");
@@ -134,10 +171,13 @@ async function refreshRows() {
       preferencia: normalizePreferencia(row?.preferencia),
       calificado_en: String(row?.calificado_en ?? ""),
       comentario_usuario: String(row?.comentario_usuario ?? ""),
+      "quiero ir": quieroText(row?.["quiero ir"]),
     })).filter((row) => row.id);
     state.spreadsheetTitle = String(body.title || "Planes");
   }
+  const serverFlags = new Map(state.rows.map((row) => [row.id, isQuieroIr(row["quiero ir"])]));
   overlayQueue();
+  applyQuieroIntent(serverFlags);
   render();
 }
 
@@ -222,6 +262,7 @@ function buildCard(row, index) {
     });
     photo.append(dots);
   }
+  if (index === 0) photo.append(quieroButton(row.id, isQuieroIr(row["quiero ir"])));
   card.append(photo);
 
   for (const rating of RATINGS) {
@@ -269,6 +310,30 @@ function buildCard(row, index) {
     bindCard(card);
   }
   return card;
+}
+
+function quieroButton(id, on) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "quiero";
+  button.dataset.quiero = id;
+  button.setAttribute("aria-pressed", on ? "true" : "false");
+  button.setAttribute("aria-label", on ? "Quitar quiero ir" : "Marcar quiero ir");
+  const mark = document.createElement("span");
+  mark.className = "quiero-mark";
+  mark.setAttribute("aria-hidden", "true");
+  button.append(mark, document.createTextNode("Quiero ir"));
+  return button;
+}
+
+function paintQuiero(id) {
+  const row = state.rows.find((item) => item.id === id);
+  const on = isQuieroIr(row?.["quiero ir"]);
+  for (const button of document.querySelectorAll("[data-quiero]")) {
+    if (button.dataset.quiero !== id) continue;
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    button.setAttribute("aria-label", on ? "Quitar quiero ir" : "Marcar quiero ir");
+  }
 }
 
 function chip(text, className) {
@@ -479,6 +544,10 @@ function openDetail(id) {
   addLink(links, row.link_info, "Más info");
   addLink(links, row.link_entradas, "Entradas");
   links.hidden = !links.childElementCount;
+  const quiero = $("detail-quiero");
+  quiero.dataset.quiero = row.id;
+  quiero.setAttribute("aria-pressed", isQuieroIr(row["quiero ir"]) ? "true" : "false");
+  quiero.setAttribute("aria-label", isQuieroIr(row["quiero ir"]) ? "Quitar quiero ir" : "Marcar quiero ir");
   $("detail-dialog").showModal();
   $("detail-dialog").querySelector(".detail-scroll").scrollTop = 0;
   $("detail-close").focus();
@@ -612,6 +681,149 @@ async function persistRating(job) {
   });
 }
 
+function revertQuiero(id, value, reason) {
+  quieroHold.delete(id);
+  removeQuiero(state.storage, id);
+  const row = state.rows.find((item) => item.id === id);
+  if (row) row["quiero ir"] = quieroText(value);
+  paintQuiero(id);
+  const code = reason?.reason || reason?.code;
+  if (code === "missing_id") {
+    toast("Ese plan ya no está en la hoja. Se actualizó la lista.");
+    refreshRows().catch(() => render());
+    return;
+  }
+  if (code === "forbidden") {
+    toast("La clave no coincide.");
+    showGate("La clave no coincide.");
+    return;
+  }
+  if (code === "headers") {
+    toast("La hoja no tiene la columna quiero ir.");
+    return;
+  }
+  if (code === "bad_request") {
+    toast("Hay que publicar la versión nueva del Apps Script para guardar quiero ir.");
+    return;
+  }
+  toast("No se pudo guardar quiero ir.");
+}
+
+async function persistQuiero(id, want) {
+  if (demo) {
+    const result = await commitQuieroRetry(state.client, {
+      spreadsheetId: "demo",
+      eventId: id,
+      quiero: want === true,
+    });
+    if (!result.ok) return { ok: false, reason: result.reason, retried: Boolean(result.retried) };
+    return { ok: true, "quiero ir": result["quiero ir"] || quieroText(want), retried: Boolean(result.retried) };
+  }
+  const job = { id, quiero: want === true, endpoint: state.connection?.url || "" };
+  if (navigator.onLine === false) {
+    enqueueQuiero(state.storage, job);
+    return { ok: true, queued: true, "quiero ir": quieroText(want) };
+  }
+  try {
+    const result = await quieroWithRetry(state.connection.url, state.connection.key, { id, quiero: want === true });
+    if (result.ok) removeQuiero(state.storage, id);
+    return result;
+  } catch (err) {
+    if (isNetworkError(err)) {
+      enqueueQuiero(state.storage, job);
+      return { ok: true, queued: true, "quiero ir": quieroText(want) };
+    }
+    throw err;
+  }
+}
+
+async function runQuiero(id) {
+  while (quieroHold.has(id)) {
+    const want = quieroHold.get(id);
+    let result;
+    try {
+      result = await persistQuiero(id, want);
+    } catch (err) {
+      if (quieroHold.get(id) !== want) continue;
+      revertQuiero(id, !want, err);
+      return;
+    }
+    if (quieroHold.get(id) !== want) continue;
+    if (!result.ok) {
+      revertQuiero(id, !want, result);
+      return;
+    }
+    const row = state.rows.find((item) => item.id === id);
+    if (row) row["quiero ir"] = quieroText(result["quiero ir"] ?? want);
+    if (!result.queued) removeQuiero(state.storage, id);
+    paintQuiero(id);
+    if (result.queued) toast("Sin conexión. Quiero ir queda en cola y se envía al volver.");
+    else if (result.retried) toast("La hoja cambió al guardar. Se reintentó una vez.");
+    if (quieroHold.get(id) === want) return;
+  }
+}
+
+function onQuiero(id) {
+  const row = state.rows.find((item) => item.id === id);
+  if (!row || state.view === "gate" || state.view === "loading") return;
+  const next = !isQuieroIr(row["quiero ir"]);
+  row["quiero ir"] = quieroText(next);
+  quieroHold.set(id, next);
+  paintQuiero(id);
+  tick();
+  if (quieroFlight.has(id)) return;
+  const run = runQuiero(id);
+  quieroFlight.set(id, run);
+  run.finally(() => {
+    if (quieroFlight.get(id) === run) quieroFlight.delete(id);
+  });
+}
+
+async function flushQuieroQueue() {
+  if (state.flushingQuiero || demo || !state.connection) return;
+  const jobs = loadQuieroQueue(state.storage).filter((job) => job.endpoint === state.connection.url);
+  if (!jobs.length) return;
+  state.flushingQuiero = true;
+  try {
+    for (const job of jobs) {
+      if (quieroFlight.has(job.id)) continue;
+      try {
+        const result = await quieroWithRetry(state.connection.url, state.connection.key, {
+          id: job.id,
+          quiero: job.quiero === true,
+        });
+        if (result.ok) {
+          removeQuiero(state.storage, job.id);
+          const row = state.rows.find((item) => item.id === job.id);
+          if (row && !quieroHold.has(job.id)) {
+            row["quiero ir"] = quieroText(result["quiero ir"] ?? job.quiero);
+            paintQuiero(job.id);
+          }
+          if (result.retried) toast("La hoja cambió al guardar. Se reintentó una vez.");
+        } else if (result.reason === "missing_id") {
+          removeQuiero(state.storage, job.id);
+          toast("Un plan en cola ya no está en la hoja.");
+        } else if (result.reason === "forbidden") {
+          toast("La clave no coincide.");
+          break;
+        } else if (result.reason === "bad_request") {
+          toast("Hay que publicar la versión nueva del Apps Script para guardar quiero ir.");
+          break;
+        } else {
+          toast("No se pudo guardar quiero ir.");
+          break;
+        }
+      } catch (err) {
+        if (isNetworkError(err)) break;
+        toast("No se pudo enviar quiero ir.");
+        break;
+      }
+    }
+  } finally {
+    state.flushingQuiero = false;
+  }
+}
+
 async function flushQueue() {
   if (state.flushing || demo || !state.connection) return;
   const jobs = queuedJobs();
@@ -694,6 +906,7 @@ function ratedItem(row) {
   const meta = [formatFecha(row.fecha_evento), formatLugar(row)].filter(Boolean).join(" · ");
   if (meta) copy.append(el("p", null, meta));
   if (row.comentario_usuario) copy.append(el("p", "note", row.comentario_usuario));
+  copy.append(quieroButton(row.id, isQuieroIr(row["quiero ir"])));
   item.append(copy);
   const button = el("button", "text-btn", "Cambiar");
   button.type = "button";
@@ -755,6 +968,7 @@ async function openConnection(connection) {
   await refreshRows();
   saveConnection(state.storage, state.connection);
   void flushQueue();
+  void flushQuieroQueue();
 }
 
 function formConnection(settings) {
@@ -815,7 +1029,10 @@ function onClearConnection() {
 async function onRefresh() {
   if (state.busy) return;
   try {
-    if (!demo) await flushQueue();
+    if (!demo) {
+      await flushQueue();
+      await flushQuieroQueue();
+    }
     if (state.view === "gate" || state.view === "loading") return;
     await refreshRows();
     toast("Lista actualizada.");
@@ -858,6 +1075,12 @@ function bindUi() {
     state.editRating = button.dataset.rate;
     syncEditButtons();
   });
+  document.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-quiero]");
+    if (!button || !button.dataset.quiero) return;
+    event.preventDefault();
+    onQuiero(button.dataset.quiero);
+  });
   $("detail-close").addEventListener("click", () => $("detail-dialog").close());
   $("detail-dialog").addEventListener("click", (event) => {
     if (event.target === $("detail-dialog")) $("detail-dialog").close();
@@ -892,6 +1115,7 @@ function bindUi() {
   });
   window.addEventListener("online", () => {
     if (!state.busy) void flushQueue();
+    void flushQuieroQueue();
   });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (!document.documentElement.dataset.theme) applyThemeColor();

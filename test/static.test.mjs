@@ -40,6 +40,11 @@ test("pages assets are relative and the app has no Google sign-in config", () =>
   assert.match(files["apps-script/Code.gs"], /getSheets\(\)\[0\]/);
   assert.match(files["apps-script/Code.gs"], /LockService/);
   assert.match(files["apps-script/Code.gs"], /me_intriga/);
+  assert.match(files["apps-script/Code.gs"], /action === "quiero"/);
+  assert.match(files["apps-script/Code.gs"], /quiero ir/);
+  assert.match(files["index.html"], /Quiero ir/);
+  assert.match(files["js/app.js"], /Quiero ir/);
+  assert.match(files["README.md"], /Gestionar implementaciones/);
   assert.match(files["README.md"], /Extensiones → Apps Script/);
   assert.match(files["README.md"], /Implementar → Nueva implementación → Aplicación web/);
   assert.match(files["README.md"], /Ejecutar como: yo/);

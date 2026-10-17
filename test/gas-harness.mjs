@@ -55,10 +55,12 @@ export function formatDate(date, timeZone, pattern) {
   return out;
 }
 
-function createSheet(matrix, failPreferencia) {
+function createSheet(matrix, failPreferencia, failQuiero) {
   const values = matrix.map((row) => row.slice());
   const prefIndex = (values[0] || []).findIndex((cell) => String(cell).trim().toLowerCase() === "preferencia");
+  const quieroIndex = (values[0] || []).findIndex((cell) => String(cell).trim().toLowerCase() === "quiero ir");
   let remaining = failPreferencia;
+  let quieroRemaining = failQuiero || 0;
   const writes = [];
   const api = {
     getLastRow() {
@@ -89,6 +91,10 @@ function createSheet(matrix, failPreferencia) {
             remaining -= 1;
             return;
           }
+          if (quieroIndex >= 0 && col - 1 === quieroIndex && quieroRemaining > 0) {
+            quieroRemaining -= 1;
+            return;
+          }
           while (values.length < row) values.push([]);
           const line = values[row - 1];
           while (line.length < col) line.push("");
@@ -109,12 +115,13 @@ export function createEnv({
   rows = [],
   extraRows = null,
   failPreferencia = 0,
+  failQuiero = 0,
   lockMode = "ok",
   title = "Eventos y planes — Julian y Valen",
 } = {}) {
-  const main = createSheet(objectsToMatrix(rows, HEADERS), failPreferencia);
+  const main = createSheet(objectsToMatrix(rows, HEADERS), failPreferencia, failQuiero);
   const sheets = [main];
-  if (extraRows) sheets.push(createSheet(objectsToMatrix(extraRows, HEADERS), 0));
+  if (extraRows) sheets.push(createSheet(objectsToMatrix(extraRows, HEADERS), 0, 0));
   const locks = [];
   const sandbox = {
     Object,

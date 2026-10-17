@@ -1,4 +1,4 @@
-const CACHE = "planes-swipe-v0.3.0";
+const CACHE = "planes-swipe-v0.3.0-quiero";
 const ASSETS = [
   "./",
   "./index.html",

@@ -146,6 +146,12 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     assert.doesNotMatch(text, /intriga/i);
     const labels = await page.$$eval("#actions .lbl", (nodes) => nodes.map((node) => node.textContent));
     assert.deepEqual(labels, ["No me gusta", "Me interesa", "Me gusta", "Me encanta"]);
+    const quiero = await page.$eval("#top-card .quiero", (el) => ({
+      text: el.textContent,
+      pressed: el.getAttribute("aria-pressed"),
+    }));
+    assert.match(quiero.text, /Quiero ir/);
+    assert.equal(quiero.pressed, "false");
 
     assertFits(await fits(page));
     if (shots) await page.screenshot({ path: join(shots, "screenshot_stack_light_375.png") });
@@ -192,6 +198,21 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     if (shots) await page.screenshot({ path: join(shots, "screenshot_stack_dark_375.png") });
     await page.click("#theme");
 
+    await page.click("#top-card .quiero");
+    await page.waitForFunction(() => document.querySelector("#top-card .quiero")?.getAttribute("aria-pressed") === "true");
+    await page.click("#top-card .name");
+    await page.waitForSelector("#detail-dialog[open]");
+    assert.equal(await page.$eval("#detail-quiero", (el) => el.textContent.trim()), "Quiero ir");
+    assert.equal(await page.$eval("#detail-quiero", (el) => el.getAttribute("aria-pressed")), "true");
+    await page.click("#detail-quiero");
+    await page.waitForFunction(() => document.querySelector("#detail-quiero")?.getAttribute("aria-pressed") === "false");
+    await page.click("#detail-close");
+    await page.waitForFunction(() => !document.getElementById("detail-dialog").open);
+    assert.equal(await page.$eval("#top-card .quiero", (el) => el.getAttribute("aria-pressed")), "false");
+    await page.click("#top-card .quiero");
+    await page.waitForFunction(() => document.querySelector("#top-card .quiero")?.getAttribute("aria-pressed") === "true");
+    if (shots) await page.screenshot({ path: join(shots, "screenshot_quiero_ir.png") });
+
     await page.click("#view");
     await page.waitForSelector(".group h2");
     const groups = await page.$$eval(".group h2", (nodes) => nodes.map((node) => node.textContent));
@@ -199,6 +220,7 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
       assert.ok(groups.some((group) => group.includes(label)), label);
     }
     assert.ok(!groups.some((group) => /intriga/i.test(group)));
+    assert.equal(await page.$eval('[data-quiero="EV-088"]', (el) => el.getAttribute("aria-pressed")), "true");
     const ratedMetrics = await page.evaluate(() => ({
       scrollH: document.documentElement.scrollHeight,
       clientH: document.documentElement.clientHeight,
@@ -215,6 +237,7 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     await page.waitForFunction((previous) => document.querySelector("#top-card .name")?.textContent !== previous, {}, first);
     await page.click("#undo");
     await page.waitForFunction((previous) => document.querySelector("#top-card .name")?.textContent === previous, {}, first);
+    assert.equal(await page.$eval("#top-card .quiero", (el) => el.getAttribute("aria-pressed")), "true");
 
     await page.click("#view");
     await page.click('[data-change="EV-055"]');

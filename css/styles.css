@@ -192,14 +192,19 @@ h1 {
 }
 
 .icon-btn svg, .bubble svg { width: 22px; height: 22px; display: block; }
-.icon-sun { display: none; }
+.icon-btn .icon-moon,
+.icon-btn .icon-sun { grid-area: 1 / 1; }
+.icon-btn .icon-sun { display: none; }
 
-:root[data-theme="dark"] .icon-moon { display: none; }
-:root[data-theme="dark"] .icon-sun { display: block; }
+:root[data-theme="light"] .icon-btn .icon-moon { display: block; }
+:root[data-theme="light"] .icon-btn .icon-sun { display: none; }
+
+:root[data-theme="dark"] .icon-btn .icon-moon { display: none; }
+:root[data-theme="dark"] .icon-btn .icon-sun { display: block; }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme]) .icon-moon { display: none; }
-  :root:not([data-theme]) .icon-sun { display: block; }
+  :root:not([data-theme]) .icon-btn .icon-moon { display: none; }
+  :root:not([data-theme]) .icon-btn .icon-sun { display: block; }
 }
 
 .text-btn {
@@ -725,3 +730,33 @@ dialog.detail[open] { display: flex; flex-direction: column; }
 .detail-motivo { margin-top: 14px; font-size: 15px; line-height: 1.4; white-space: pre-wrap; }
 .detail .links { margin-top: 12px; }
 dialog.detail > .btn { margin: 8px 20px 20px; width: calc(100% - 40px); }
+
+dialog.help {
+  display: none;
+  width: min(26rem, calc(100% - 24px));
+  max-height: calc(100dvh - 24px - var(--sat) - var(--sab));
+  padding: 0;
+  overflow: hidden;
+}
+dialog.help[open] { display: flex; flex-direction: column; }
+.help-scroll { overflow-y: auto; padding: 20px 20px 8px; -webkit-overflow-scrolling: touch; }
+.help-lead { margin-top: 8px; color: var(--secondary); font-size: 14px; }
+.help-downloads { display: grid; gap: 8px; margin-top: 14px; }
+.help-downloads a { text-align: center; text-decoration: none; }
+.help-scroll h3 {
+  margin: 18px 0 0;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+.help-scroll ol {
+  margin: 8px 0 0;
+  padding-left: 1.15rem;
+  display: grid;
+  gap: 10px;
+}
+.help-scroll li { font-size: 14px; }
+.help-scroll strong { font-weight: 650; }
+.columns { margin: 8px 0 0; }
+.columns dt { font-weight: 650; font-size: 13px; }
+.columns dd { margin: 2px 0 10px; color: var(--secondary); font-size: 13px; }
+dialog.help > .btn { margin: 8px 20px 20px; width: calc(100% - 40px); }

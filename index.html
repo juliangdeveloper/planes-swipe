@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Planes</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="manifest" href="manifest.json?v=0.5.0">
-  <link rel="stylesheet" href="css/styles.css?v=0.5.0">
+  <link rel="manifest" href="manifest.json?v=0.6.0">
+  <link rel="stylesheet" href="css/styles.css?v=0.6.0">
   <script>
     try {
       var theme = localStorage.getItem("planes-swipe.theme");
@@ -27,7 +27,7 @@
         <div class="brand">
           <h1>Planes</h1>
           <div class="badges">
-            <p class="badge" id="version">planes-swipe v0.5.0</p>
+            <p class="badge" id="version">planes-swipe v0.6.0</p>
             <p class="badge demo" id="demo-badge" hidden>Demo</p>
           </div>
         </div>
@@ -63,6 +63,7 @@
           </label>
           <p class="form-error" id="gate-error" hidden></p>
           <button class="btn primary" type="button" id="test-connection">Probar conexión</button>
+          <button class="btn" type="button" id="gate-help">Cómo preparar la hoja</button>
         </div>
       </section>
 
@@ -113,6 +114,7 @@
     <p class="form-error" id="settings-error" hidden></p>
     <div class="stack-btns">
       <button class="btn primary" type="button" id="settings-save">Probar y guardar</button>
+      <button class="btn" type="button" id="settings-help">Cómo preparar la hoja</button>
       <button class="btn" type="button" id="settings-clear">Olvidar conexión</button>
       <button class="btn" type="button" id="settings-cancel">Cerrar</button>
     </div>
@@ -151,8 +153,32 @@
     <button class="btn primary" type="button" id="detail-close" autofocus>Cerrar</button>
   </dialog>
 
+  <dialog id="help-dialog" class="help" aria-labelledby="help-title">
+    <div class="help-scroll">
+      <h2 id="help-title">Preparar la hoja</h2>
+      <p class="help-lead">Descarga la plantilla y el script. Con una hoja de Google y Apps Script alcanza. La URL y la clave se escriben solo en este navegador.</p>
+      <div class="help-downloads">
+        <a class="btn primary" href="downloads/plantilla-eventos.xlsx" download="plantilla-eventos.xlsx">Descargar plantilla Excel</a>
+        <a class="btn" href="downloads/Code.gs" download="Code.gs">Descargar Code.gs</a>
+      </div>
+      <h3>Pasos</h3>
+      <ol>
+        <li><strong>Sube el Excel a Drive y ábrelo como hoja.</strong> Entra a Google Drive, sube plantilla-eventos.xlsx y ábrelo con Hojas de cálculo de Google (clic derecho > Abrir con > Hojas de cálculo de Google). La primera pestaña ya trae los encabezados. El script siempre usa esa primera pestaña.</li>
+        <li><strong>Pega Code.gs y crea la clave.</strong> En la hoja: Extensiones > Apps Script. Borra el ejemplo y pega todo el archivo Code.gs. En el engranaje: Configuración del proyecto > Propiedades del script. Añade una propiedad. Nombre: SECRET. Valor: una clave larga que inventes. No la escribas dentro del archivo.</li>
+        <li><strong>Publícalo como aplicación web.</strong> Implementar > Nueva implementación > Aplicación web. Ejecutar como: Yo. Quién tiene acceso: Cualquier usuario. Implementar, aceptar los permisos y copiar la URL que termina en /exec. Si más adelante cambias el script: Implementar > Gestionar implementaciones > el lápiz > Versión: Nueva versión. Así la URL sigue igual.</li>
+        <li><strong>Llena una fila por plan.</strong> No cambies los nombres de la primera fila. Puedes borrar las dos filas de ejemplo. Las columnas son estas:</li>
+      </ol>
+      <dl class="columns" id="column-help"></dl>
+      <h3>Conectar la app</h3>
+      <ol start="5">
+        <li><strong>Pega la URL y la clave.</strong> En Conecta la hoja, o en Conexión, pega la URL que termina en /exec y la misma clave de SECRET. Pulsa Probar conexión. Quedan solo en este navegador.</li>
+      </ol>
+    </div>
+    <button class="btn primary" type="button" id="help-close">Cerrar</button>
+  </dialog>
+
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <noscript><p class="gate-card noscript">Activa JavaScript para calificar los planes.</p></noscript>
-  <script type="module" src="js/app.js?v=0.5.0"></script>
+  <script type="module" src="js/app.js?v=0.6.0"></script>
 </body>
 </html>

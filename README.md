@@ -71,6 +71,13 @@ Para cambiarlas, pulsa el nombre de la hoja en la barra: **Probar y guardar** vu
 
 ## Versión
 
-La insignia dice `planes-swipe v0.5.0`.
+La insignia dice `planes-swipe v0.6.0`.
+
+En la pantalla de conexión y en Conexión hay **Cómo preparar la hoja**: los mismos pasos, en español, y dos descargas generadas desde este repositorio.
+
+- `downloads/plantilla-eventos.xlsx` — encabezados de `HEADERS` y dos filas de ejemplo ficticias.
+- `downloads/Code.gs` — copia de `apps-script/Code.gs`.
+
+Para regenerarlas: `node scripts/build-setup.mjs`.
 
 Pruebas: `node --test`.

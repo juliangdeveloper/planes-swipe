@@ -200,9 +200,30 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     });
     await page.click("#theme");
     await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
+    const darkIcons = await page.evaluate(() => ({
+      moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
+      sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,
+    }));
+    assert.equal(darkIcons.moon, "none");
+    assert.equal(darkIcons.sun, "block");
     assertFits(await fits(page));
     if (shots) await page.screenshot({ path: join(shots, "screenshot_stack_dark_375.png") });
     await page.click("#theme");
+    await page.waitForFunction(() => document.documentElement.dataset.theme === "light");
+    const lightIcons = await page.evaluate(() => ({
+      moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
+      sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,
+    }));
+    assert.equal(lightIcons.moon, "block");
+    assert.equal(lightIcons.sun, "none");
+    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
+    const forcedLight = await page.evaluate(() => ({
+      moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
+      sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,
+    }));
+    assert.equal(forcedLight.moon, "block");
+    assert.equal(forcedLight.sun, "none");
+    await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "light" }]);
 
     await page.click("#top-card .quiero");
     await page.waitForFunction(() => document.querySelector("#top-card .quiero")?.getAttribute("aria-pressed") === "true");
@@ -305,6 +326,42 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
       const group = [...document.querySelectorAll(".group")].find((node) => node.querySelector("h2")?.textContent.includes("Me interesa"));
       return group?.textContent.includes("Campín");
     });
+
+    await page.goto(`http://127.0.0.1:${port}/?nosw=1`, { waitUntil: "load" });
+    await page.waitForSelector("#gate:not([hidden]) #gate-help");
+    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.6.0");
+    const gateIcons = await page.evaluate(() => ({
+      moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
+      sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,
+    }));
+    assert.equal(gateIcons.moon, "block");
+    assert.equal(gateIcons.sun, "none");
+    await page.click("#gate-help");
+    await page.waitForSelector("#help-dialog[open]");
+    const helpText = await page.$eval("#help-dialog", (el) => el.innerText);
+    assert.match(helpText, /Extensiones/);
+    assert.match(helpText, /Apps Script/);
+    assert.match(helpText, /SECRET/);
+    assert.match(helpText, /Cualquier usuario/);
+    assert.match(helpText, /\/exec/);
+    assert.match(helpText, /quiero ir/);
+    assert.match(helpText, /EJEMPLO-001/);
+    const downloads = await page.$$eval("#help-dialog a", (nodes) => nodes.map((node) => ({
+      href: node.getAttribute("href"),
+      download: node.getAttribute("download"),
+    })));
+    assert.deepEqual(downloads, [
+      { href: "downloads/plantilla-eventos.xlsx", download: "plantilla-eventos.xlsx" },
+      { href: "downloads/Code.gs", download: "Code.gs" },
+    ]);
+    await page.click("#help-close");
+    await page.waitForFunction(() => !document.getElementById("help-dialog").open);
+    await page.click("#pick");
+    await page.waitForSelector("#settings-dialog[open]");
+    await page.click("#settings-help");
+    await page.waitForSelector("#help-dialog[open]");
+    assert.equal(await page.evaluate(() => document.getElementById("settings-dialog").open), true);
+    await page.click("#help-close");
 
     assert.deepEqual(errors, []);
   } finally {

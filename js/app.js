@@ -888,8 +888,13 @@ function ratedGroup(label, items) {
   return section;
 }
 
-function ratedItem(row) {
-  const item = el("li", "rated-item");
+function ratedBanner(row) {
+  const name = row.nombre_evento || row.id;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "thumb-btn";
+  button.dataset.detail = row.id;
+  button.setAttribute("aria-label", `Ver detalle de ${name}`);
   const src = [row.imagen_1, row.imagen_2, row.imagen_3].map(safeImageUrl).find(Boolean);
   if (src) {
     const img = document.createElement("img");
@@ -897,10 +902,16 @@ function ratedItem(row) {
     img.alt = "";
     img.src = src;
     img.addEventListener("error", () => img.replaceWith(el("div", "thumb")));
-    item.append(img);
+    button.append(img);
   } else {
-    item.append(el("div", "thumb"));
+    button.append(el("div", "thumb"));
   }
+  return button;
+}
+
+function ratedItem(row) {
+  const item = el("li", "rated-item");
+  item.append(ratedBanner(row));
   const copy = el("div", "rated-copy");
   copy.append(el("strong", null, row.nombre_evento || row.id));
   const meta = [formatFecha(row.fecha_evento), formatLugar(row)].filter(Boolean).join(" · ");
@@ -1065,9 +1076,15 @@ function bindUi() {
     void onRate(button.dataset.rate);
   });
   $("rated").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-change]");
-    if (!button) return;
-    openEdit(button.dataset.change);
+    if (event.target.closest("[data-quiero]")) return;
+    const change = event.target.closest("[data-change]");
+    if (change) {
+      openEdit(change.dataset.change);
+      return;
+    }
+    const detail = event.target.closest("[data-detail]");
+    if (!detail) return;
+    openDetail(detail.dataset.detail);
   });
   $("edit-actions").addEventListener("click", (event) => {
     const button = event.target.closest("[data-rate]");

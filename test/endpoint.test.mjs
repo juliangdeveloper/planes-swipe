@@ -221,7 +221,8 @@ test("app rates through a mocked Apps Script endpoint", { timeout: 120000 }, asy
     });
     assert.equal(pref(env).preferencia, "");
     await page.setOfflineMode(false);
-    await page.click("#refresh");
+    await page.waitForFunction(() => navigator.onLine);
+    await page.$eval("#refresh", (el) => el.click());
     for (let attempt = 0; attempt < 50 && pref(env).preferencia !== "me_encanta"; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }

@@ -192,6 +192,12 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
       await page.waitForFunction(() => (document.querySelector("#top-card")?.dataset.armed || "") === "");
     }
 
+    await page.waitForFunction(() => {
+      const card = document.getElementById("top-card");
+      const theme = document.getElementById("theme");
+      if (!card || !theme) return false;
+      return card.getBoundingClientRect().top >= theme.getBoundingClientRect().bottom - 1;
+    });
     await page.click("#theme");
     await page.waitForFunction(() => document.documentElement.dataset.theme === "dark");
     assertFits(await fits(page));
@@ -221,6 +227,57 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     }
     assert.ok(!groups.some((group) => /intriga/i.test(group)));
     assert.equal(await page.$eval('[data-quiero="EV-088"]', (el) => el.getAttribute("aria-pressed")), "true");
+    assert.match(
+      await page.$eval('[data-detail="EV-088"]', (el) => el.getAttribute("aria-label")),
+      /Ver detalle de Ciclovía nocturna/,
+    );
+    await page.click('[data-detail="EV-088"] img');
+    await page.waitForSelector("#detail-dialog[open]");
+    assert.equal(await page.$eval("#detail-title", (el) => el.textContent), "Ciclovía nocturna");
+    const ratedDetail = await page.$eval("#detail-dialog", (el) => el.innerText);
+    assert.match(ratedDetail, /Carrera 7/);
+    assert.match(ratedDetail, /Aire libre/);
+    assert.match(ratedDetail, /La séptima se presta para ir sin afán/);
+    assert.equal(await page.$eval("#detail-quiero", (el) => el.getAttribute("aria-pressed")), "true");
+    assert.equal(await page.evaluate(() => document.getElementById("edit-dialog").open), false);
+    await page.click("#detail-quiero");
+    await page.waitForFunction(() => document.querySelector("#detail-quiero")?.getAttribute("aria-pressed") === "false");
+    await page.click("#detail-close");
+    await page.waitForFunction(() => !document.getElementById("detail-dialog").open);
+    assert.equal(await page.$eval('[data-quiero="EV-088"]', (el) => el.getAttribute("aria-pressed")), "false");
+    assert.ok(await page.evaluate(() => {
+      const group = [...document.querySelectorAll(".group")].find((node) => node.querySelector("h2")?.textContent.includes("Me encanta"));
+      return Boolean(group?.textContent.includes("Ciclovía nocturna"));
+    }));
+    await page.click('[data-quiero="EV-088"]');
+    await page.waitForFunction(() => document.querySelector('[data-quiero="EV-088"]')?.getAttribute("aria-pressed") === "true");
+    assert.equal(await page.evaluate(() => document.getElementById("detail-dialog").open), false);
+
+    await page.click('[data-quiero="EV-074"]');
+    await page.waitForFunction(() => document.querySelector('[data-quiero="EV-074"]')?.getAttribute("aria-pressed") === "true");
+    assert.equal(await page.evaluate(() => document.getElementById("detail-dialog").open), false);
+    assert.equal(await page.evaluate(() => document.getElementById("edit-dialog").open), false);
+    await page.click('[data-quiero="EV-074"]');
+    await page.waitForFunction(() => document.querySelector('[data-quiero="EV-074"]')?.getAttribute("aria-pressed") === "false");
+
+    await page.click('[data-change="EV-061"]');
+    await page.waitForSelector("#edit-dialog[open]");
+    assert.equal(await page.evaluate(() => document.getElementById("detail-dialog").open), false);
+    await page.click("#edit-cancel");
+    await page.waitForFunction(() => !document.getElementById("edit-dialog").open);
+
+    await page.evaluate(() => {
+      document.querySelector('[data-detail="EV-055"] img').dispatchEvent(new Event("error"));
+    });
+    await page.click('[data-detail="EV-055"] .thumb');
+    await page.waitForSelector("#detail-dialog[open]");
+    assert.equal(await page.$eval("#detail-title", (el) => el.textContent), "Partido en El Campín");
+    assert.match(await page.$eval("#detail-dialog", (el) => el.innerText), /Cancelado/);
+    assert.equal(await page.evaluate(() => document.getElementById("edit-dialog").open), false);
+    assert.equal(await page.$eval('[data-quiero="EV-055"]', (el) => el.getAttribute("aria-pressed")), "false");
+    await page.click("#detail-close");
+    await page.waitForFunction(() => !document.getElementById("detail-dialog").open);
+
     const ratedMetrics = await page.evaluate(() => ({
       scrollH: document.documentElement.scrollHeight,
       clientH: document.documentElement.clientHeight,

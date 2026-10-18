@@ -1,17 +1,19 @@
-const CACHE = "planes-swipe-v0.5.0";
+const CACHE = "planes-swipe-v0.6.0";
 const ASSETS = [
   "./",
   "./index.html",
-  "./css/styles.css?v=0.5.0",
+  "./css/styles.css?v=0.6.0",
   "./js/config.js",
   "./js/format.js",
   "./js/sheet.js",
   "./js/queue.js",
   "./js/script.js",
   "./js/demo.js",
-  "./js/app.js?v=0.5.0",
+  "./js/app.js?v=0.6.0",
   "./favicon.svg",
-  "./manifest.json?v=0.5.0",
+  "./manifest.json?v=0.6.0",
+  "./downloads/plantilla-eventos.xlsx",
+  "./downloads/Code.gs",
   "./img/festival.svg",
   "./img/lights.svg",
   "./img/theater.svg",

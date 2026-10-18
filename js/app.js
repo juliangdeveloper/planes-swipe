@@ -1,6 +1,8 @@
 import {
   APP_VERSION,
+  COLUMN_HELP,
   GROUP_ORDER,
+  HEADERS,
   RATINGS,
   STORAGE_THEME_KEY,
 } from "./config.js";
@@ -80,6 +82,19 @@ function toggleTheme() {
   document.documentElement.dataset.theme = next;
   try { localStorage.setItem(STORAGE_THEME_KEY, next); } catch { /* private mode */ }
   applyThemeColor();
+}
+
+function renderColumnHelp() {
+  const list = $("column-help");
+  if (!list) return;
+  list.replaceChildren();
+  for (const header of HEADERS) {
+    list.append(el("dt", "", header), el("dd", "", COLUMN_HELP[header] || ""));
+  }
+}
+
+function openHelp() {
+  $("help-dialog").showModal();
 }
 
 let toastTimer = 0;
@@ -1060,6 +1075,12 @@ function bindUi() {
   $("settings-save").addEventListener("click", () => { void onTestConnection(true); });
   $("settings-clear").addEventListener("click", onClearConnection);
   $("settings-cancel").addEventListener("click", () => $("settings-dialog").close());
+  $("gate-help").addEventListener("click", openHelp);
+  $("settings-help").addEventListener("click", openHelp);
+  $("help-close").addEventListener("click", () => $("help-dialog").close());
+  $("help-dialog").addEventListener("click", (event) => {
+    if (event.target === $("help-dialog")) $("help-dialog").close();
+  });
   $("view").addEventListener("click", () => {
     if (state.view !== "stack" && state.view !== "rated") return;
     state.view = state.view === "rated" ? "stack" : "rated";
@@ -1112,7 +1133,7 @@ function bindUi() {
     void finishRating(id, preferencia, comentario);
   });
   document.addEventListener("keydown", (event) => {
-    if (event.target.closest("input, textarea") || $("edit-dialog").open || $("settings-dialog").open || $("detail-dialog").open) return;
+    if (event.target.closest("input, textarea") || $("edit-dialog").open || $("settings-dialog").open || $("detail-dialog").open || $("help-dialog").open) return;
     if (state.view !== "stack" || state.busy) return;
     const map = {
       ArrowLeft: "no_me_gusta",
@@ -1142,6 +1163,7 @@ function bindUi() {
 async function boot() {
   bindUi();
   applyThemeColor();
+  renderColumnHelp();
   $("version").textContent = `planes-swipe v${APP_VERSION}`;
   if (demo) {
     $("demo-badge").hidden = false;

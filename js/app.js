@@ -1071,6 +1071,7 @@ function bindUi() {
   $("theme").addEventListener("click", toggleTheme);
   $("refresh").addEventListener("click", () => { void onRefresh(); });
   $("pick").addEventListener("click", () => { openSettings(); });
+  $("settings").addEventListener("click", () => { openSettings(); });
   $("test-connection").addEventListener("click", () => { void onTestConnection(false); });
   $("settings-save").addEventListener("click", () => { void onTestConnection(true); });
   $("settings-clear").addEventListener("click", onClearConnection);

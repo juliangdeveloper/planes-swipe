@@ -67,13 +67,13 @@ El código está en `apps-script/Code.gs`.
 8. Implementa, acepta los permisos y copia la URL que termina en `/exec`.
 9. Abre Planes, pega esa URL y la clave, y pulsa **Probar conexión**.
 
-Para cambiarlas, pulsa el nombre de la hoja en la barra: **Probar y guardar** vuelve a probar, y **Olvidar conexión** las borra de este navegador. Si cambias `Code.gs`, publica una versión nueva: **Implementar → Gestionar implementaciones → Editar → Nueva versión**. La URL `/exec` se mantiene.
+Para cambiarlas, pulsa el engranaje de la barra (al lado del tema): ahí están la URL, la clave, **Cómo preparar la hoja** y las descargas. **Probar y guardar** vuelve a probar, y **Olvidar conexión** las borra de este navegador. El nombre de la hoja, debajo del título, abre la misma pantalla. Si cambias `Code.gs`, publica una versión nueva: **Implementar → Gestionar implementaciones → Editar → Nueva versión**. La URL `/exec` se mantiene.
 
 ## Versión
 
-La insignia dice `planes-swipe v0.6.0`.
+La insignia dice `planes-swipe v0.7.0`.
 
-En la pantalla de conexión y en Conexión hay **Cómo preparar la hoja**: los mismos pasos, en español, y dos descargas generadas desde este repositorio.
+El engranaje de la barra abre Conexión. Ahí, y en la pantalla inicial, está **Cómo preparar la hoja**: los mismos pasos, en español, y dos descargas generadas desde este repositorio.
 
 - `downloads/plantilla-eventos.xlsx` — encabezados de `HEADERS` y dos filas de ejemplo ficticias.
 - `downloads/Code.gs` — copia de `apps-script/Code.gs`.

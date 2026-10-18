@@ -654,6 +654,11 @@ dialog {
   box-shadow: var(--shadow);
 }
 
+#settings-dialog {
+  max-height: calc(100dvh - 24px - var(--sat) - var(--sab));
+  overflow: auto;
+}
+
 dialog::backdrop {
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
@@ -685,7 +690,7 @@ dialog h2 { font-size: 22px; letter-spacing: -0.03em; }
 }
 .field textarea { resize: none; padding: 10px 12px; }
 .stack-btns { display: grid; gap: 8px; margin-top: 14px; }
-.stack-btns .btn { width: 100%; margin-top: 0; }
+.stack-btns .btn { width: 100%; margin-top: 0; text-align: center; text-decoration: none; }
 
 .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 

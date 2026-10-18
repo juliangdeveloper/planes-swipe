@@ -206,6 +206,18 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     }));
     assert.equal(darkIcons.moon, "none");
     assert.equal(darkIcons.sun, "block");
+    const darkGear = await page.evaluate(() => {
+      const gear = document.getElementById("settings");
+      const rect = gear.getBoundingClientRect();
+      return {
+        display: getComputedStyle(gear).display,
+        width: rect.width,
+        right: rect.right,
+        innerW: window.innerWidth,
+      };
+    });
+    assert.notEqual(darkGear.display, "none");
+    assert.ok(darkGear.width >= 32 && darkGear.right <= darkGear.innerW + 1);
     assertFits(await fits(page));
     if (shots) await page.screenshot({ path: join(shots, "screenshot_stack_dark_375.png") });
     await page.click("#theme");
@@ -216,6 +228,29 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     }));
     assert.equal(lightIcons.moon, "block");
     assert.equal(lightIcons.sun, "none");
+    const gearBox = await page.evaluate(() => {
+      const gear = document.getElementById("settings");
+      const theme = document.getElementById("theme");
+      const gearRect = gear.getBoundingClientRect();
+      const themeRect = theme.getBoundingClientRect();
+      const style = getComputedStyle(gear);
+      return {
+        label: gear.getAttribute("aria-label"),
+        display: style.display,
+        width: gearRect.width,
+        height: gearRect.height,
+        top: gearRect.top,
+        right: gearRect.right,
+        themeTop: themeRect.top,
+        innerW: window.innerWidth,
+        innerH: window.innerHeight,
+      };
+    });
+    assert.equal(gearBox.label, "Ajustes");
+    assert.notEqual(gearBox.display, "none");
+    assert.ok(gearBox.width >= 32 && gearBox.height >= 32, "gear is tappable");
+    assert.ok(gearBox.top >= 0 && gearBox.right <= gearBox.innerW + 1, "gear stays in the header");
+    assert.ok(Math.abs(gearBox.top - gearBox.themeTop) < 2, "gear sits on the theme row");
     await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: "dark" }]);
     const forcedLight = await page.evaluate(() => ({
       moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
@@ -329,7 +364,7 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
 
     await page.goto(`http://127.0.0.1:${port}/?nosw=1`, { waitUntil: "load" });
     await page.waitForSelector("#gate:not([hidden]) #gate-help");
-    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.6.0");
+    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.7.0");
     const gateIcons = await page.evaluate(() => ({
       moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
       sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,
@@ -356,8 +391,17 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     ]);
     await page.click("#help-close");
     await page.waitForFunction(() => !document.getElementById("help-dialog").open);
-    await page.click("#pick");
+    await page.click("#settings");
     await page.waitForSelector("#settings-dialog[open]");
+    const settingsText = await page.$eval("#settings-dialog", (el) => el.innerText);
+    assert.match(settingsText, /Cómo preparar la hoja/);
+    assert.match(settingsText, /Descargar plantilla Excel/);
+    assert.match(settingsText, /Descargar Code.gs/);
+    const settingsDownloads = await page.$$eval("#settings-dialog a", (nodes) => nodes.map((node) => node.getAttribute("href")));
+    assert.deepEqual(settingsDownloads, [
+      "downloads/plantilla-eventos.xlsx",
+      "downloads/Code.gs",
+    ]);
     await page.click("#settings-help");
     await page.waitForSelector("#help-dialog[open]");
     assert.equal(await page.evaluate(() => document.getElementById("settings-dialog").open), true);

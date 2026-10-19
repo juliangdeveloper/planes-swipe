@@ -35,3 +35,5 @@ Versión actual: `planes-swipe v0.8.1`.
 ---
 
 Más proyectos: https://juliangdeveloper.github.io/
+
+Hecho con ❤️ y 💖

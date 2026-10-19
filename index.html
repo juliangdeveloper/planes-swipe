@@ -10,8 +10,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Planes</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
-  <link rel="manifest" href="manifest.json?v=0.7.0">
-  <link rel="stylesheet" href="css/styles.css?v=0.7.0">
+  <link rel="manifest" href="manifest.json?v=0.8.0">
+  <link rel="stylesheet" href="css/styles.css?v=0.8.0">
   <script>
     try {
       var theme = localStorage.getItem("planes-swipe.theme");
@@ -27,7 +27,7 @@
         <div class="brand">
           <h1>Planes</h1>
           <div class="badges">
-            <p class="badge" id="version">planes-swipe v0.7.0</p>
+            <p class="badge" id="version">planes-swipe v0.8.0</p>
             <p class="badge demo" id="demo-badge" hidden>Demo</p>
           </div>
         </div>
@@ -120,6 +120,8 @@
       <button class="btn" type="button" id="settings-help">Cómo preparar la hoja</button>
       <a class="btn" href="downloads/plantilla-eventos.xlsx" download="plantilla-eventos.xlsx">Descargar plantilla Excel</a>
       <a class="btn" href="downloads/Code.gs" download="Code.gs">Descargar Code.gs</a>
+      <a class="btn" href="downloads/conectar-ia-prompt.md" download="conectar-ia-prompt.md">Conectar IA</a>
+      <p class="download-note">Prompt para pegar en cualquier IA: te guía para montar la rutina de búsqueda de eventos.</p>
       <button class="btn" type="button" id="settings-clear">Olvidar conexión</button>
       <button class="btn" type="button" id="settings-cancel">Cerrar</button>
     </div>
@@ -184,6 +186,6 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <noscript><p class="gate-card noscript">Activa JavaScript para calificar los planes.</p></noscript>
-  <script type="module" src="js/app.js?v=0.7.0"></script>
+  <script type="module" src="js/app.js?v=0.8.0"></script>
 </body>
 </html>

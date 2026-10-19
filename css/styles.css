@@ -691,6 +691,14 @@ dialog h2 { font-size: 22px; letter-spacing: -0.03em; }
 .field textarea { resize: none; padding: 10px 12px; }
 .stack-btns { display: grid; gap: 8px; margin-top: 14px; }
 .stack-btns .btn { width: 100%; margin-top: 0; text-align: center; text-decoration: none; }
+.download-note {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.35;
+  text-align: left;
+}
 
 .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 

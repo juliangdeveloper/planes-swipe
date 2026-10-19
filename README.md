@@ -71,12 +71,13 @@ Para cambiarlas, pulsa el engranaje de la barra (al lado del tema): ahí están 
 
 ## Versión
 
-La insignia dice `planes-swipe v0.7.0`.
+La insignia dice `planes-swipe v0.8.0`.
 
 El engranaje de la barra abre Conexión. Ahí, y en la pantalla inicial, está **Cómo preparar la hoja**: los mismos pasos, en español, y dos descargas generadas desde este repositorio.
 
 - `downloads/plantilla-eventos.xlsx` — encabezados de `HEADERS` y dos filas de ejemplo ficticias.
 - `downloads/Code.gs` — copia de `apps-script/Code.gs`.
+- `downloads/conectar-ia-prompt.md` — prompt para pegar en cualquier IA y montar la rutina de búsqueda de eventos.
 
 Para regenerarlas: `node scripts/build-setup.mjs`.
 

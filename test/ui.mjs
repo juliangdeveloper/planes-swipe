@@ -364,7 +364,7 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
 
     await page.goto(`http://127.0.0.1:${port}/?nosw=1`, { waitUntil: "load" });
     await page.waitForSelector("#gate:not([hidden]) #gate-help");
-    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.7.0");
+    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.8.0");
     const gateIcons = await page.evaluate(() => ({
       moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
       sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,
@@ -397,10 +397,16 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     assert.match(settingsText, /Cómo preparar la hoja/);
     assert.match(settingsText, /Descargar plantilla Excel/);
     assert.match(settingsText, /Descargar Code.gs/);
-    const settingsDownloads = await page.$$eval("#settings-dialog a", (nodes) => nodes.map((node) => node.getAttribute("href")));
+    assert.match(settingsText, /Conectar IA/);
+    assert.match(settingsText, /Prompt para pegar en cualquier IA/);
+    const settingsDownloads = await page.$$eval("#settings-dialog a", (nodes) => nodes.map((node) => ({
+      href: node.getAttribute("href"),
+      download: node.getAttribute("download"),
+    })));
     assert.deepEqual(settingsDownloads, [
-      "downloads/plantilla-eventos.xlsx",
-      "downloads/Code.gs",
+      { href: "downloads/plantilla-eventos.xlsx", download: "plantilla-eventos.xlsx" },
+      { href: "downloads/Code.gs", download: "Code.gs" },
+      { href: "downloads/conectar-ia-prompt.md", download: "conectar-ia-prompt.md" },
     ]);
     await page.click("#settings-help");
     await page.waitForSelector("#help-dialog[open]");

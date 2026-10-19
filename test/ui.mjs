@@ -138,10 +138,10 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     await page.evaluate(() => document.fonts.ready);
 
     const text = await page.$eval("#top-card", (el) => el.innerText);
-    assert.match(text, /Estéreo Picnic/);
+    assert.match(text, /Sonido Abierto/);
     assert.match(text, /Entradas a la venta/);
     assert.match(text, /Ambos/);
-    assert.match(text, /Simón Bolívar/);
+    assert.match(text, /Parque Central/);
     assert.match(text, /ME INTERESA/);
     assert.doesNotMatch(text, /intriga/i);
     const labels = await page.$$eval("#actions .lbl", (nodes) => nodes.map((node) => node.textContent));
@@ -291,9 +291,9 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     await page.waitForSelector("#detail-dialog[open]");
     assert.equal(await page.$eval("#detail-title", (el) => el.textContent), "Ciclovía nocturna");
     const ratedDetail = await page.$eval("#detail-dialog", (el) => el.innerText);
-    assert.match(ratedDetail, /Carrera 7/);
+    assert.match(ratedDetail, /Avenida del Río/);
     assert.match(ratedDetail, /Aire libre/);
-    assert.match(ratedDetail, /La séptima se presta para ir sin afán/);
+    assert.match(ratedDetail, /La avenida se presta para ir sin afán/);
     assert.equal(await page.$eval("#detail-quiero", (el) => el.getAttribute("aria-pressed")), "true");
     assert.equal(await page.evaluate(() => document.getElementById("edit-dialog").open), false);
     await page.click("#detail-quiero");
@@ -327,7 +327,7 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     });
     await page.click('[data-detail="EV-055"] .thumb');
     await page.waitForSelector("#detail-dialog[open]");
-    assert.equal(await page.$eval("#detail-title", (el) => el.textContent), "Partido en El Campín");
+    assert.equal(await page.$eval("#detail-title", (el) => el.textContent), "Partido en el Estadio Municipal");
     assert.match(await page.$eval("#detail-dialog", (el) => el.innerText), /Cancelado/);
     assert.equal(await page.evaluate(() => document.getElementById("edit-dialog").open), false);
     assert.equal(await page.$eval('[data-quiero="EV-055"]', (el) => el.getAttribute("aria-pressed")), "false");
@@ -359,7 +359,7 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
     await page.click("#edit-save");
     await page.waitForFunction(() => {
       const group = [...document.querySelectorAll(".group")].find((node) => node.querySelector("h2")?.textContent.includes("Me interesa"));
-      return group?.textContent.includes("Campín");
+      return group?.textContent.includes("Estadio Municipal");
     });
 
     await page.goto(`http://127.0.0.1:${port}/?nosw=1`, { waitUntil: "load" });

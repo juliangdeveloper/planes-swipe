@@ -4,10 +4,10 @@ const slots = new WeakMap();
 const slotList = new Set();
 
 export const PROYECTO = {
-  objetivo: 'Calificar planes y eventos deslizando tarjetas, sincronizado con tu propia hoja de Google y usable sin conexión.',
-  fase: 5,
+  objetivo: 'App personal para calificar mis planes deslizando tarjetas, y publicada en la App Store.',
+  fase: 3,
   fase_estado: 1,
-  fases_completadas: 4
+  fases_completadas: 2
 };
 
 let proyectoSource = PROYECTO;
@@ -21,7 +21,7 @@ export function metaProyecto(p) {
     if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
     const o = p.objetivo;
     if (typeof o !== 'string' || !o.trim() || Array.from(o).length > 140) return null;
-    if (!proyectoInt(p.fase, 1, 6) || !proyectoInt(p.fase_estado, 0, 4) || !proyectoInt(p.fases_completadas, 0, 6)) return null;
+    if (!proyectoInt(p.fase, 1, 7) || !proyectoInt(p.fase_estado, 0, 4) || !proyectoInt(p.fases_completadas, 0, 6)) return null;
     return { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
   } catch (e) {
     return null;

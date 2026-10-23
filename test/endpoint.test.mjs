@@ -101,7 +101,6 @@ async function loadPuppeteer() {
       const mod = await import(candidate);
       return mod.default || mod;
     } catch {
-      /* try the next path */
     }
   }
   return null;

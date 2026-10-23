@@ -78,7 +78,7 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     const record = backfillProgress(storage, oldRows(), APP_VERSION, NOW);
 
     assert.deepEqual(savedKeys(storage), before);
-    assert.deepEqual(Object.keys(record), ["v", "slug", "version", "updatedAt", "stats", "logros", "hitos"]);
+    assert.deepEqual(Object.keys(record), ["v", "slug", "version", "updatedAt", "stats", "logros", "hitos", "proyecto"]);
     assert.equal(record.v, 1);
     assert.equal(record.slug, APP_ID);
     assert.equal(record.version, APP_VERSION);

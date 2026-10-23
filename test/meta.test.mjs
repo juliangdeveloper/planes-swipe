@@ -9,7 +9,7 @@ import {
   STORAGE_QUIERO_KEY,
   STORAGE_THEME_KEY,
 } from "../js/config.js";
-import { flushScheduledMeta, metaStorageKey, metaUpdate, registerStats, scheduleMetaUpdate, setMetaLive } from "../js/meta.js";
+import { flushMetaForHide, metaStorageKey, metaUpdate, registerStats, scheduleMetaUpdate, setMetaLive } from "../js/meta.js";
 import { STATS, backfillProgress, startProgress, syncProgress } from "../js/progress.js";
 import { createMemoryStorage } from "../js/queue.js";
 
@@ -295,11 +295,8 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
       assert.equal(JSON.parse(storage.getItem(KEY)).stats.sessions, 3);
 
       scheduleMetaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 4 }, logros: [] }, storage);
-      flushScheduledMeta(storage, APP_ID);
       assert.equal(JSON.parse(storage.getItem(KEY)).stats.sessions, 3);
       mock.timers.tick(1000);
-      assert.equal(JSON.parse(storage.getItem(KEY)).stats.sessions, 4);
-      flushScheduledMeta(storage, APP_ID);
       assert.equal(JSON.parse(storage.getItem(KEY)).stats.sessions, 4);
     } finally {
       mock.timers.reset();
@@ -388,7 +385,7 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     }
   });
 
-  await t.test("backfill and flush share one write per second", () => {
+  await t.test("backfill stays within one write per second", () => {
     mock.timers.enable({ apis: ["setTimeout", "Date"] });
     try {
       const storage = createMemoryStorage();
@@ -405,7 +402,6 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
       };
       backfillProgress(counted, oldRows(), APP_VERSION, NOW);
       syncProgress(counted, oldRows(), APP_VERSION, { sessions: 2, undos: 1 });
-      flushScheduledMeta(counted, APP_ID);
       assert.deepEqual(writes, [KEY]);
       assert.deepEqual(savedKeys(counted), before);
       mock.timers.tick(999);
@@ -414,10 +410,79 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
       assert.deepEqual(writes, [KEY, KEY]);
       assert.equal(JSON.parse(counted.getItem(KEY)).stats.sessions, 2);
       assert.deepEqual(savedKeys(counted), before);
-      flushScheduledMeta(counted, APP_ID);
-      assert.deepEqual(writes, [KEY, KEY]);
     } finally {
       mock.timers.reset();
+    }
+  });
+
+  await t.test("a pending change flushes on pagehide and when the page is hidden", () => {
+    mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const messages = [];
+    const previousWindow = globalThis.window;
+    const previousLocation = globalThis.location;
+    globalThis.window = {
+      parent: {
+        postMessage(data, origin) {
+          messages.push({ data, origin });
+        },
+      },
+    };
+    globalThis.location = { origin: "https://planes.test" };
+    try {
+      const storage = createMemoryStorage();
+      const writes = [];
+      const counted = {
+        getItem: (key) => storage.getItem(key),
+        setItem: (key, value) => {
+          writes.push(key);
+          storage.setItem(key, value);
+        },
+        removeItem: (key) => storage.removeItem(key),
+      };
+      metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 1 }, logros: ["first_session"] }, counted, NOW);
+      scheduleMetaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 2 }, logros: ["first_session"] }, counted, NOW);
+      assert.deepEqual(writes, [KEY]);
+      flushMetaForHide("visibilitychange", counted, APP_ID, "visible");
+      assert.deepEqual(writes, [KEY]);
+      assert.equal(messages.length, 1);
+
+      flushMetaForHide("pagehide", counted, APP_ID);
+      assert.deepEqual(writes, [KEY, KEY]);
+      assert.equal(JSON.parse(counted.getItem(KEY)).stats.sessions, 2);
+      assert.equal(messages.length, 2);
+      assert.equal(messages[1].origin, "https://planes.test");
+      assert.equal(messages[1].data.key, KEY);
+      assert.equal(messages[1].data.data.stats.sessions, 2);
+      flushMetaForHide("pagehide", counted, APP_ID);
+      flushMetaForHide("visibilitychange", counted, APP_ID, "hidden");
+      assert.deepEqual(writes, [KEY, KEY]);
+
+      const hidden = createMemoryStorage();
+      const hiddenWrites = [];
+      const hiddenStore = {
+        getItem: (key) => hidden.getItem(key),
+        setItem: (key, value) => {
+          hiddenWrites.push(key);
+          hidden.setItem(key, value);
+        },
+        removeItem: (key) => hidden.removeItem(key),
+      };
+      metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 1 }, logros: [] }, hiddenStore, NOW);
+      scheduleMetaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 4 }, logros: [] }, hiddenStore, NOW);
+      flushMetaForHide("visibilitychange", hiddenStore, APP_ID, "hidden");
+      assert.deepEqual(hiddenWrites, [KEY, KEY]);
+      assert.equal(JSON.parse(hidden.getItem(KEY)).stats.sessions, 4);
+      const posted = messages.length;
+      flushMetaForHide("visibilitychange", hiddenStore, APP_ID, "hidden");
+      assert.equal(messages.length, posted);
+      assert.deepEqual(hiddenWrites, [KEY, KEY]);
+    } finally {
+      mock.timers.reset();
+      setMetaLive(true);
+      if (previousWindow === undefined) delete globalThis.window;
+      else globalThis.window = previousWindow;
+      if (previousLocation === undefined) delete globalThis.location;
+      else globalThis.location = previousLocation;
     }
   });
 
@@ -444,7 +509,8 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
       backfillProgress(storage, rows, APP_VERSION, NOW);
       scheduleMetaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 3 }, logros: ["first_session"] }, storage, NOW);
       metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 3 }, logros: ["first_session"] }, storage, NOW);
-      flushScheduledMeta(storage, APP_ID);
+      flushMetaForHide("pagehide", storage, APP_ID);
+      flushMetaForHide("visibilitychange", storage, APP_ID, "hidden");
       assert.equal(storage.getItem(KEY), null);
       assert.equal(storage.getItem(CORRUPT), null);
       assert.deepEqual(messages, []);

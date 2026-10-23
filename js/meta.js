@@ -248,14 +248,23 @@ export function flushScheduledMeta(storage, slug) {
     if (!bySlug) return;
     const list = slug ? [bySlug.get(slug)] : [...bySlug.values()];
     for (const slot of list) {
-      if (!slot?.pending || !writable(slot)) continue;
+      if (!slot?.pending) continue;
       if (slot.timer) {
         clearTimeout(slot.timer);
         slot.timer = 0;
       }
-      drain(slot);
+      const job = slot.pending;
+      slot.pending = null;
+      slot.lastWrite = Date.now();
+      commit(job);
     }
   } catch {
     /* ignore */
   }
+}
+
+export function flushMetaForHide(type, storage, slug, visibilityState) {
+  if (type === "visibilitychange" && visibilityState !== "hidden") return;
+  if (type !== "pagehide" && type !== "visibilitychange") return;
+  flushScheduledMeta(storage, slug);
 }

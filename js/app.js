@@ -9,7 +9,7 @@ import {
 } from "./config.js";
 import { DEMO_TITLE, demoMatrix } from "./demo.js";
 import { bogotaIso, formatFecha, formatLugar, formatPrecio, safeHttpUrl, safeImageUrl } from "./format.js";
-import { flushScheduledMeta, setMetaLive } from "./meta.js";
+import { flushMetaForHide, setMetaLive } from "./meta.js";
 import { startProgress, syncProgress } from "./progress.js";
 import { createMemoryStorage, enqueue, enqueueQuiero, isNetworkError, loadQueue, loadQuieroQueue, removeQueued, removeQuiero } from "./queue.js";
 import {
@@ -1192,7 +1192,11 @@ function bindUi() {
   });
   window.addEventListener("pagehide", () => {
     if (demo) return;
-    flushScheduledMeta(state.storage, APP_ID);
+    flushMetaForHide("pagehide", state.storage, APP_ID);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (demo) return;
+    flushMetaForHide("visibilitychange", state.storage, APP_ID, document.visibilityState);
   });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (!document.documentElement.dataset.theme) applyThemeColor();

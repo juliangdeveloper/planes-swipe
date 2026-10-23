@@ -13,6 +13,8 @@ test("pages assets are relative and the app has no Google sign-in config", () =>
     "index.html": read("index.html"),
     "css/styles.css": read("css/styles.css"),
     "js/app.js": read("js/app.js"),
+    "js/meta.js": read("js/meta.js"),
+    "js/progress.js": read("js/progress.js"),
     "js/config.js": read("js/config.js"),
     "js/script.js": read("js/script.js"),
     "manifest.json": read("manifest.json"),
@@ -25,11 +27,11 @@ test("pages assets are relative and the app has no Google sign-in config", () =>
     assert.doesNotMatch(source, /(?:src|href)\s*=\s*["']\//, `${name} has a root-absolute asset`);
     assert.doesNotMatch(source, /url\(\s*["']?\//, `${name} has a root-absolute css url`);
   }
-  assert.match(files["index.html"], /href="css\/styles.css\?v=0\.8\.1"/);
-  assert.match(files["index.html"], /src="js\/app.js\?v=0\.8\.1"/);
-  assert.match(files["index.html"], /href="manifest\.json\?v=0\.8\.1"/);
+  assert.match(files["index.html"], /href="css\/styles.css\?v=0\.8\.2"/);
+  assert.match(files["index.html"], /src="js\/app.js\?v=0\.8\.2"/);
+  assert.match(files["index.html"], /href="manifest\.json\?v=0\.8\.2"/);
   assert.match(files["index.html"], /lang="es-CO"/);
-  assert.match(files["index.html"], /planes-swipe v0\.8\.1/);
+  assert.match(files["index.html"], /planes-swipe v0\.8\.2/);
   assert.match(files["index.html"], /Probar conexión/);
   assert.match(files["index.html"], /Me interesa/);
   assert.doesNotMatch(files["index.html"], /intriga/);
@@ -50,19 +52,21 @@ test("pages assets are relative and the app has no Google sign-in config", () =>
   assert.match(files["README.md"], /Implementar → Nueva implementación → Aplicación web/);
   assert.match(files["README.md"], /Ejecutar como: yo/);
   assert.match(files["README.md"], /Acceso: cualquier usuario/);
-  assert.equal(APP_VERSION, "0.8.1");
-  assert.match(files["js/config.js"], /planes-swipe v0\.8\.1/);
-  assert.match(files["sw.js"], /const CACHE = "planes-swipe-v0\.8\.1"/);
-  assert.match(files["sw.js"], /\.\/css\/styles\.css\?v=0\.8\.1/);
-  assert.match(files["sw.js"], /\.\/js\/app\.js\?v=0\.8\.1/);
-  assert.match(files["sw.js"], /\.\/manifest\.json\?v=0\.8\.1/);
+  assert.equal(APP_VERSION, "0.8.2");
+  assert.match(files["js/config.js"], /planes-swipe v0\.8\.2/);
+  assert.match(files["sw.js"], /const CACHE = "planes-swipe-v0\.8\.2"/);
+  assert.match(files["sw.js"], /\.\/css\/styles\.css\?v=0\.8\.2/);
+  assert.match(files["sw.js"], /\.\/js\/meta\.js/);
+  assert.match(files["sw.js"], /\.\/js\/progress\.js/);
+  assert.match(files["sw.js"], /\.\/js\/app\.js\?v=0\.8\.2/);
+  assert.match(files["sw.js"], /\.\/manifest\.json\?v=0\.8\.2/);
   assert.match(files["sw.js"], /\.\/downloads\/plantilla-eventos\.xlsx/);
   assert.match(files["sw.js"], /\.\/downloads\/Code\.gs/);
   assert.match(files["sw.js"], /\.\/downloads\/conectar-ia-prompt\.md/);
   assert.match(files["index.html"], /download="conectar-ia-prompt\.md"/);
   assert.match(read("downloads/conectar-ia-prompt.md"), /^# Conectar IA — Rutina de búsqueda de planes/);
-  assert.match(files["manifest.json"], /"version": "0\.8\.1"/);
-  assert.match(files["README.md"], /planes-swipe v0\.8\.1/);
+  assert.match(files["manifest.json"], /"version": "0\.8\.2"/);
+  assert.match(files["README.md"], /planes-swipe v0\.8\.2/);
   assert.match(files["index.html"], /id="settings" aria-label="Ajustes"/);
   assert.match(files["index.html"], /Cómo preparar la hoja/);
   assert.match(files["index.html"], /id="help-dialog"/);

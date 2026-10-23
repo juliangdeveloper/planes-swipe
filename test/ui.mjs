@@ -364,7 +364,7 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
 
     await page.goto(`http://127.0.0.1:${port}/?nosw=1`, { waitUntil: "load" });
     await page.waitForSelector("#gate:not([hidden]) #gate-help");
-    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.8.1");
+    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.8.2");
     const gateIcons = await page.evaluate(() => ({
       moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
       sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,

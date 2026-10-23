@@ -1,6 +1,6 @@
-// planes-swipe v0.8.4 — static config. No URL and no key live in this file.
+// planes-swipe v0.8.5 — static config. No URL and no key live in this file.
 export const APP_ID = "planes-swipe";
-export const APP_VERSION = "0.8.4";
+export const APP_VERSION = "0.8.5";
 export const STORAGE_CONNECTION_KEY = "planes-swipe.connection.v1";
 export const STORAGE_QUEUE_KEY = "planes-swipe.queue.v1";
 export const STORAGE_QUIERO_KEY = "planes-swipe.quiero.v1";

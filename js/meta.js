@@ -3,6 +3,47 @@ const declared = [];
 const slots = new WeakMap();
 const slotList = new Set();
 
+// Project status, set by hand and bumped with the version. Never computed from play.
+// fase 1-6: Idea, Definición, Diseño, Construcción, Validación, Lanzamiento y mantenimiento.
+// fase_estado 0-4: pendiente, en curso, bloqueada, en revisión, completada.
+export const PROYECTO = {
+  objetivo: 'Calificar planes y eventos deslizando tarjetas, sincronizado con tu propia hoja de Google y usable sin conexión.',
+  fase: 5,
+  fase_estado: 1,
+  fases_completadas: 4
+};
+
+let proyectoSource = PROYECTO;
+
+function proyectoInt(n, lo, hi) {
+  return typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
+}
+
+// Clean copy of a proyecto block, or null when any field is missing or out of range.
+export function metaProyecto(p) {
+  try {
+    if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
+    const o = p.objetivo;
+    if (typeof o !== 'string' || !o.trim() || Array.from(o).length > 140) return null;
+    if (!proyectoInt(p.fase, 1, 6) || !proyectoInt(p.fase_estado, 0, 4) || !proyectoInt(p.fases_completadas, 0, 6)) return null;
+    return { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
+  } catch (e) {
+    return null;
+  }
+}
+
+// Tests only: swap the block the writer uses (null restores PROYECTO).
+export function metaSetProyecto(p) {
+  proyectoSource = p === null ? PROYECTO : p;
+}
+
+// Adds the current proyecto block to a record being written, when it is valid.
+function withProyecto(record) {
+  const p = metaProyecto(proyectoSource);
+  if (p) record.proyecto = p;
+  return record;
+}
+
 export function setMetaLive(on) {
   live.on = on !== false;
   if (live.on) return;
@@ -149,7 +190,7 @@ function commit(job) {
     }
   }
   const previous = found.kind === "valid" ? found.record : null;
-  const record = buildRecord(job.slug, job.version, job.payload?.stats, job.payload?.logros, previous, toIso(job.now));
+  const record = withProyecto(buildRecord(job.slug, job.version, job.payload?.stats, job.payload?.logros, previous, toIso(job.now)));
   job.store.setItem(metaStorageKey(job.slug), JSON.stringify(record));
   notify(metaStorageKey(job.slug), record);
   return record;

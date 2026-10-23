@@ -1,5 +1,5 @@
 import { APP_ID } from "./config.js";
-import { metaBackfill, readMeta, scheduleMetaUpdate } from "./meta.js";
+import { metaBackfill, readMeta, registerStats, scheduleMetaUpdate } from "./meta.js";
 import { loadQueue, loadQuieroQueue } from "./queue.js";
 import { isQuieroIr, normalizePreferencia } from "./sheet.js";
 
@@ -10,18 +10,25 @@ const RATING_KEYS = {
   no_me_gusta: "ratings_no_me_gusta",
 };
 
-const SHEET_STAT_KEYS = [
-  "plans_total",
-  "plans_rated",
-  "plans_unrated",
-  "ratings_me_encanta",
-  "ratings_me_gusta",
-  "ratings_me_interesa",
-  "ratings_no_me_gusta",
-  "ratings_other",
-  "comments",
-  "quiero_ir",
+// Declared keys, in write order. Monotonic counts keep the higher value.
+export const STATS = [
+  { key: "sessions", monotonic: true },
+  { key: "undos", monotonic: true },
+  { key: "plans_total" },
+  { key: "plans_rated" },
+  { key: "plans_unrated" },
+  { key: "ratings_me_encanta" },
+  { key: "ratings_me_gusta" },
+  { key: "ratings_me_interesa" },
+  { key: "ratings_no_me_gusta" },
+  { key: "ratings_other" },
+  { key: "comments" },
+  { key: "quiero_ir" },
+  { key: "queue_pending" },
+  { key: "quiero_pending" },
 ];
+
+registerStats(STATS);
 
 function finite(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
@@ -117,14 +124,24 @@ export function startProgress(storage, rows, version, { loaded = false } = {}) {
   }
   const sessions = finite(existing.stats?.sessions) + 1;
   const undos = finite(existing.stats?.undos);
-  const progress = collectProgress(loaded ? rows : [], storage, { sessions, undos });
   if (!loaded) {
-    const prev = existing.stats && typeof existing.stats === "object" ? existing.stats : {};
-    for (const key of SHEET_STAT_KEYS) {
-      if (typeof prev[key] === "number" && Number.isFinite(prev[key])) progress.stats[key] = prev[key];
-    }
-    progress.logros = earned(progress.stats);
+    const local = collectProgress([], storage, { sessions, undos });
+    const view = { ...(existing.stats || {}) };
+    view.sessions = sessions;
+    view.undos = undos;
+    view.queue_pending = local.stats.queue_pending;
+    view.quiero_pending = local.stats.quiero_pending;
+    scheduleMetaUpdate(APP_ID, version, {
+      stats: {
+        sessions,
+        undos,
+        queue_pending: local.stats.queue_pending,
+        quiero_pending: local.stats.quiero_pending,
+      },
+      logros: earned(view),
+    }, storage);
+    return { sessions, undos };
   }
-  scheduleMetaUpdate(APP_ID, version, progress, storage);
+  scheduleMetaUpdate(APP_ID, version, collectProgress(rows, storage, { sessions, undos }), storage);
   return { sessions, undos };
 }

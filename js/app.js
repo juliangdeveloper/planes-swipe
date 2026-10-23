@@ -9,7 +9,7 @@ import {
 } from "./config.js";
 import { DEMO_TITLE, demoMatrix } from "./demo.js";
 import { bogotaIso, formatFecha, formatLugar, formatPrecio, safeHttpUrl, safeImageUrl } from "./format.js";
-import { flushScheduledMeta } from "./meta.js";
+import { flushScheduledMeta, setMetaLive } from "./meta.js";
 import { startProgress, syncProgress } from "./progress.js";
 import { createMemoryStorage, enqueue, enqueueQuiero, isNetworkError, loadQueue, loadQuieroQueue, removeQueued, removeQuiero } from "./queue.js";
 import {
@@ -35,6 +35,7 @@ import {
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const demo = params.get("demo") === "1";
+setMetaLive(!demo);
 const DIR = { left: "no_me_gusta", right: "me_gusta", up: "me_encanta", down: "me_interesa" };
 const ESTADO = {
   "Solo anuncio": "anuncio",
@@ -66,7 +67,7 @@ let metaSessions = 0;
 let metaUndos = 0;
 
 function publishMeta() {
-  if (!metaStarted || !rowsLoaded || !state.storage) return;
+  if (demo || !metaStarted || !rowsLoaded || !state.storage) return;
   try {
     syncProgress(state.storage, state.rows, APP_VERSION, {
       sessions: metaSessions,
@@ -76,7 +77,7 @@ function publishMeta() {
 }
 
 function beginMeta() {
-  if (metaStarted || !state.storage) return;
+  if (demo || metaStarted || !state.storage) return;
   metaStarted = true;
   try {
     const started = startProgress(state.storage, state.rows, APP_VERSION, { loaded: rowsLoaded });
@@ -1190,6 +1191,7 @@ function bindUi() {
     void flushQuieroQueue();
   });
   window.addEventListener("pagehide", () => {
+    if (demo) return;
     flushScheduledMeta(state.storage, APP_ID);
   });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -1208,7 +1210,6 @@ async function boot() {
     state.client = createMemoryClient(demoMatrix(), { title: "Eventos", spreadsheetTitle: DEMO_TITLE });
     state.view = "stack";
     await refreshRows();
-    beginMeta();
     return;
   }
   state.storage = createMemoryStorage();

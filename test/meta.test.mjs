@@ -9,11 +9,12 @@ import {
   STORAGE_QUIERO_KEY,
   STORAGE_THEME_KEY,
 } from "../js/config.js";
-import { flushScheduledMeta, metaStorageKey, metaUpdate, scheduleMetaUpdate } from "../js/meta.js";
-import { backfillProgress, startProgress } from "../js/progress.js";
+import { flushScheduledMeta, metaStorageKey, metaUpdate, registerStats, scheduleMetaUpdate, setMetaLive } from "../js/meta.js";
+import { STATS, backfillProgress, startProgress, syncProgress } from "../js/progress.js";
 import { createMemoryStorage } from "../js/queue.js";
 
 const KEY = metaStorageKey(APP_ID);
+const CORRUPT = `${KEY}.corrupt`;
 const NOW = new Date("2026-10-23T18:00:00.000Z");
 const URL = "https://script.google.com/macros/s/IDSentinela/exec";
 const SECRET = "ClaveSentinela";
@@ -81,7 +82,10 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     assert.equal(record.v, 1);
     assert.equal(record.slug, APP_ID);
     assert.equal(record.version, APP_VERSION);
+    assert.equal(KEY, "meta.v1.planes-swipe");
+    assert.equal(record.version.startsWith("v"), false);
     assert.equal(record.updatedAt, "2026-10-23T18:00:00.000Z");
+    assert.deepEqual(Object.keys(record.stats), STATS.map((item) => item.key));
     assert.deepEqual(record.stats, {
       sessions: 1,
       undos: 0,
@@ -152,6 +156,7 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     assert.equal(record.v, 1);
     assert.equal(record.slug, APP_ID);
     assert.equal(record.stats.plans_rated, 5);
+    assert.equal(storage.getItem(CORRUPT), "{");
     assert.deepEqual(savedKeys(storage), before);
     assert.equal(storage.getItem(KEY).includes(SECRET), false);
 
@@ -160,6 +165,7 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     assert.doesNotThrow(() => {
       record = metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 1 }, logros: ["first_session"] }, broken, NOW);
     });
+    assert.equal(broken.getItem(CORRUPT), "not-json");
     assert.equal(record.stats.sessions, 1);
     assert.deepEqual(record.logros, ["first_session"]);
 
@@ -168,7 +174,29 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     assert.doesNotThrow(() => {
       record = metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 2 }, logros: [] }, empty, NOW);
     });
+    assert.equal(empty.getItem(CORRUPT), "null");
     assert.equal(record.stats.sessions, 2);
+
+    const wrong = createMemoryStorage();
+    const wrongRaw = JSON.stringify({ v: 2, slug: APP_ID, stats: { sessions: 9 } });
+    wrong.setItem(KEY, wrongRaw);
+    record = backfillProgress(wrong, [], APP_VERSION, NOW);
+    assert.equal(wrong.getItem(CORRUPT), wrongRaw);
+    assert.equal(record.v, 1);
+    assert.equal(record.stats.sessions, 1);
+
+    const other = createMemoryStorage();
+    const otherRaw = JSON.stringify({ v: 1, slug: "other-app" });
+    other.setItem(KEY, otherRaw);
+    record = backfillProgress(other, [], APP_VERSION, NOW);
+    assert.equal(other.getItem(CORRUPT), otherRaw);
+    assert.equal(record.slug, APP_ID);
+
+    const list = createMemoryStorage();
+    list.setItem(KEY, "[]");
+    record = backfillProgress(list, [], APP_VERSION, NOW);
+    assert.equal(list.getItem(CORRUPT), "[]");
+    assert.equal(record.v, 1);
 
     const quota = {
       getItem() { return null; },
@@ -180,6 +208,7 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
   });
 
   await t.test("metaUpdate merges counts, keeps hitos, and posts the record", () => {
+    mock.timers.enable({ apis: ["setTimeout", "Date"] });
     const storage = createMemoryStorage();
     const messages = [];
     const previousWindow = globalThis.window;
@@ -193,10 +222,12 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     };
     globalThis.location = { origin: "https://planes.test" };
     try {
-      metaUpdate(APP_ID, APP_VERSION, {
+      const first = metaUpdate(APP_ID, "v0.8.3", {
         stats: { sessions: 1, plans_rated: 1, legacy_count: 4 },
         logros: ["first_rating", "first_session"],
       }, storage, new Date("2026-10-20T15:01:02.000Z"));
+      assert.equal(first.version, "0.8.3");
+      mock.timers.tick(1000);
       const record = metaUpdate(APP_ID, APP_VERSION, {
         stats: { sessions: Number.POSITIVE_INFINITY, plans_rated: 2, note: NAME },
         logros: ["ten_rated", "first_session"],
@@ -204,10 +235,11 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
       assert.equal(record.v, 1);
       assert.equal(record.slug, APP_ID);
       assert.equal(record.version, APP_VERSION);
+      assert.equal(record.version.startsWith("v"), false);
       assert.equal(record.updatedAt, "2026-10-21T19:22:10.000Z");
       assert.equal(record.stats.sessions, 1);
       assert.equal(record.stats.plans_rated, 2);
-      assert.equal(record.stats.legacy_count, 4);
+      assert.equal("legacy_count" in record.stats, false);
       assert.equal("note" in record.stats, false);
       assert.deepEqual(record.logros, ["first_rating", "first_session", "ten_rated"]);
       assert.equal(record.hitos.first_session, "2026-10-20T15:01:02.000Z");
@@ -226,18 +258,22 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
       const same = { postMessage() { messages.push("same"); } };
       same.parent = same;
       globalThis.window = same;
+      mock.timers.tick(1000);
       metaUpdate(APP_ID, APP_VERSION, { stats: { plans_rated: 3 }, logros: [] }, storage, NOW);
       assert.deepEqual(messages, []);
+      assert.equal(JSON.parse(storage.getItem(KEY)).stats.plans_rated, 3);
 
       globalThis.window = {
         parent: {
           postMessage() { throw new Error("blocked"); },
         },
       };
+      mock.timers.tick(1000);
       const saved = metaUpdate(APP_ID, APP_VERSION, { stats: { plans_rated: 4 }, logros: [] }, storage, NOW);
       assert.equal(saved.stats.plans_rated, 4);
       assert.equal(saved.hitos.first_session, "2026-10-20T15:01:02.000Z");
     } finally {
+      mock.timers.reset();
       if (previousWindow === undefined) delete globalThis.window;
       else globalThis.window = previousWindow;
       if (previousLocation === undefined) delete globalThis.location;
@@ -260,8 +296,10 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
 
       scheduleMetaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 4 }, logros: [] }, storage);
       flushScheduledMeta(storage, APP_ID);
+      assert.equal(JSON.parse(storage.getItem(KEY)).stats.sessions, 3);
+      mock.timers.tick(1000);
       assert.equal(JSON.parse(storage.getItem(KEY)).stats.sessions, 4);
-      mock.timers.tick(5000);
+      flushScheduledMeta(storage, APP_ID);
       assert.equal(JSON.parse(storage.getItem(KEY)).stats.sessions, 4);
     } finally {
       mock.timers.reset();
@@ -306,5 +344,130 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     assert.equal(next.stats.plans_total, 2);
     assert.equal(next.stats.quiero_ir, 1);
     assert.equal(next.hitos.first_rating, "2026-01-02T03:04:05.000Z");
+  });
+
+  await t.test("declared stats are capped, ordered, and monotonic", () => {
+    mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    try {
+      const many = Array.from({ length: 21 }, (_, index) => ({
+        key: `stat_${String(index).padStart(2, "0")}`,
+        monotonic: index === 0,
+      }));
+      registerStats(many);
+      const storage = createMemoryStorage();
+      const stats = { picture: "data:image/png;base64,AAAA", extra: 7 };
+      many.forEach((item, index) => {
+        stats[item.key] = index + 1;
+      });
+      const record = metaUpdate(APP_ID, APP_VERSION, { stats, logros: [] }, storage, NOW);
+      assert.deepEqual(Object.keys(record.stats), many.slice(0, 20).map((item) => item.key));
+      assert.equal(record.stats.stat_20, undefined);
+      assert.equal("picture" in record.stats, false);
+      assert.equal("extra" in record.stats, false);
+      mock.timers.tick(1000);
+      const lowered = metaUpdate(APP_ID, APP_VERSION, {
+        stats: { stat_00: 0, stat_01: 1 },
+        logros: [],
+      }, storage, NOW);
+      assert.equal(lowered.stats.stat_00, 1);
+      assert.equal(lowered.stats.stat_01, 1);
+      assert.equal(lowered.stats.stat_02, 3);
+
+      registerStats(STATS);
+      const app = createMemoryStorage();
+      metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 5, undos: 2, plans_total: 9 }, logros: [] }, app, NOW);
+      mock.timers.tick(1000);
+      const next = metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 1, plans_total: 4 }, logros: [] }, app, NOW);
+      assert.equal(next.stats.sessions, 5);
+      assert.equal(next.stats.undos, 2);
+      assert.equal(next.stats.plans_total, 4);
+      assert.deepEqual(Object.keys(next.stats), ["sessions", "undos", "plans_total"]);
+    } finally {
+      registerStats(STATS);
+      mock.timers.reset();
+    }
+  });
+
+  await t.test("backfill and flush share one write per second", () => {
+    mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    try {
+      const storage = createMemoryStorage();
+      seedOldSave(storage);
+      const before = savedKeys(storage);
+      const writes = [];
+      const counted = {
+        getItem: (key) => storage.getItem(key),
+        setItem: (key, value) => {
+          writes.push(key);
+          storage.setItem(key, value);
+        },
+        removeItem: (key) => storage.removeItem(key),
+      };
+      backfillProgress(counted, oldRows(), APP_VERSION, NOW);
+      syncProgress(counted, oldRows(), APP_VERSION, { sessions: 2, undos: 1 });
+      flushScheduledMeta(counted, APP_ID);
+      assert.deepEqual(writes, [KEY]);
+      assert.deepEqual(savedKeys(counted), before);
+      mock.timers.tick(999);
+      assert.deepEqual(writes, [KEY]);
+      mock.timers.tick(1);
+      assert.deepEqual(writes, [KEY, KEY]);
+      assert.equal(JSON.parse(counted.getItem(KEY)).stats.sessions, 2);
+      assert.deepEqual(savedKeys(counted), before);
+      flushScheduledMeta(counted, APP_ID);
+      assert.deepEqual(writes, [KEY, KEY]);
+    } finally {
+      mock.timers.reset();
+    }
+  });
+
+  await t.test("demo mode does not write or postMessage and real mode does", () => {
+    const messages = [];
+    const previousWindow = globalThis.window;
+    const previousLocation = globalThis.location;
+    globalThis.window = {
+      parent: {
+        postMessage(data, origin) {
+          messages.push({ data, origin });
+        },
+      },
+    };
+    globalThis.location = { origin: "https://planes.test" };
+    try {
+      setMetaLive(false);
+      const storage = createMemoryStorage();
+      seedOldSave(storage);
+      const before = savedKeys(storage);
+      const rows = [{ preferencia: "me_encanta", comentario_usuario: COMMENT_A, nombre_evento: NAME, "quiero ir": "TRUE" }];
+      startProgress(storage, rows, APP_VERSION, { loaded: true });
+      syncProgress(storage, rows, APP_VERSION, { sessions: 4, undos: 1 });
+      backfillProgress(storage, rows, APP_VERSION, NOW);
+      scheduleMetaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 3 }, logros: ["first_session"] }, storage, NOW);
+      metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 3 }, logros: ["first_session"] }, storage, NOW);
+      flushScheduledMeta(storage, APP_ID);
+      assert.equal(storage.getItem(KEY), null);
+      assert.equal(storage.getItem(CORRUPT), null);
+      assert.deepEqual(messages, []);
+      assert.deepEqual(savedKeys(storage), before);
+      assert.equal(JSON.stringify(savedKeys(storage)).includes(NAME), false);
+
+      setMetaLive(true);
+      const real = createMemoryStorage();
+      const record = metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 1 }, logros: ["first_session"] }, real, NOW);
+      assert.equal(record.stats.sessions, 1);
+      assert.equal(record.slug, APP_ID);
+      assert.equal(messages.length, 1);
+      assert.equal(messages[0].origin, "https://planes.test");
+      assert.equal(messages[0].data.type, "meta");
+      assert.equal(messages[0].data.key, KEY);
+      assert.equal(messages[0].data.data.stats.sessions, 1);
+      assert.equal(real.getItem(KEY).includes(NAME), false);
+    } finally {
+      setMetaLive(true);
+      if (previousWindow === undefined) delete globalThis.window;
+      else globalThis.window = previousWindow;
+      if (previousLocation === undefined) delete globalThis.location;
+      else globalThis.location = previousLocation;
+    }
   });
 });

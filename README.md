@@ -30,7 +30,7 @@ python3 -m http.server 8000   # abrir http://localhost:8000/?demo=1
 node --test                   # tests
 ```
 
-Versión actual: `planes-swipe v0.8.2`.
+Versión actual: `planes-swipe v0.8.3`.
 
 ---
 

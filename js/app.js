@@ -1,4 +1,5 @@
 import {
+  APP_ID,
   APP_VERSION,
   COLUMN_HELP,
   GROUP_ORDER,
@@ -8,6 +9,8 @@ import {
 } from "./config.js";
 import { DEMO_TITLE, demoMatrix } from "./demo.js";
 import { bogotaIso, formatFecha, formatLugar, formatPrecio, safeHttpUrl, safeImageUrl } from "./format.js";
+import { flushMetaForHide, setMetaLive } from "./meta.js";
+import { startProgress, syncProgress } from "./progress.js";
 import { createMemoryStorage, enqueue, enqueueQuiero, isNetworkError, loadQueue, loadQuieroQueue, removeQueued, removeQuiero } from "./queue.js";
 import {
   clearConnection,
@@ -32,6 +35,7 @@ import {
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const demo = params.get("demo") === "1";
+setMetaLive(!demo);
 const DIR = { left: "no_me_gusta", right: "me_gusta", up: "me_encanta", down: "me_interesa" };
 const ESTADO = {
   "Solo anuncio": "anuncio",
@@ -57,6 +61,30 @@ const state = {
 
 const quieroHold = new Map();
 const quieroFlight = new Map();
+let metaStarted = false;
+let rowsLoaded = false;
+let metaSessions = 0;
+let metaUndos = 0;
+
+function publishMeta() {
+  if (demo || !metaStarted || !rowsLoaded || !state.storage) return;
+  try {
+    syncProgress(state.storage, state.rows, APP_VERSION, {
+      sessions: metaSessions,
+      undos: metaUndos,
+    });
+  } catch { /* ignore */ }
+}
+
+function beginMeta() {
+  if (demo || metaStarted || !state.storage) return;
+  metaStarted = true;
+  try {
+    const started = startProgress(state.storage, state.rows, APP_VERSION, { loaded: rowsLoaded });
+    metaSessions = started.sessions;
+    metaUndos = started.undos;
+  } catch { /* ignore */ }
+}
 
 function el(tag, className, text) {
   const node = document.createElement(tag);
@@ -193,7 +221,9 @@ async function refreshRows() {
   const serverFlags = new Map(state.rows.map((row) => [row.id, isQuieroIr(row["quiero ir"])]));
   overlayQueue();
   applyQuieroIntent(serverFlags);
+  rowsLoaded = true;
   render();
+  publishMeta();
 }
 
 function render() {
@@ -349,6 +379,7 @@ function paintQuiero(id) {
     button.setAttribute("aria-pressed", on ? "true" : "false");
     button.setAttribute("aria-label", on ? "Quitar quiero ir" : "Marcar quiero ir");
   }
+  publishMeta();
 }
 
 function chip(text, className) {
@@ -588,6 +619,7 @@ async function onRate(rating) {
 
 async function onUndo() {
   if (!state.undo || state.busy) return;
+  metaUndos += 1;
   const { id, before } = state.undo;
   await finishRating(id, before.preferencia, before.comentario_usuario, before.calificado_en);
 }
@@ -676,6 +708,7 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
     state.busy = false;
     highlight("", false);
     if (state.view === "stack" || state.view === "rated") render();
+    publishMeta();
   }
 }
 
@@ -1045,6 +1078,7 @@ function onClearConnection() {
   clearConnection(state.storage);
   state.connection = null;
   state.rows = [];
+  rowsLoaded = false;
   state.undo = null;
   $("settings-dialog").close();
   $("script-url").value = "";
@@ -1156,6 +1190,14 @@ function bindUi() {
     if (!state.busy) void flushQueue();
     void flushQuieroQueue();
   });
+  window.addEventListener("pagehide", () => {
+    if (demo) return;
+    flushMetaForHide("pagehide", state.storage, APP_ID);
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (demo) return;
+    flushMetaForHide("visibilitychange", state.storage, APP_ID, document.visibilityState);
+  });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
     if (!document.documentElement.dataset.theme) applyThemeColor();
   });
@@ -1184,14 +1226,17 @@ async function boot() {
   const saved = loadConnection(state.storage);
   if (!saved) {
     showGate();
+    beginMeta();
     return;
   }
   try {
     await openConnection(saved);
+    beginMeta();
   } catch (err) {
     showGate(messageFor(err));
     $("script-url").value = saved.url;
     $("script-key").value = saved.key;
+    beginMeta();
   }
 }
 

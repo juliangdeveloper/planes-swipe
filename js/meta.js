@@ -3,10 +3,14 @@ const declared = [];
 const slots = new WeakMap();
 const slotList = new Set();
 
+export const FASE = Object.freeze({ IDEA: 1, DEFINICION: 2, DISENO: 3, CONSTRUCCION: 4, VALIDACION: 5, LANZAMIENTO_Y_MANTENIMIENTO: 6, DESCARTADA: 7 });
+export const ESTADO_FASE = Object.freeze({ PENDIENTE: 0, EN_CURSO: 1, BLOQUEADA: 2, EN_REVISION: 3, COMPLETADA: 4 });
+export const TIPO_STAT = Object.freeze({ TOTAL_ACUMULADO: 'total_acumulado', MEJOR_MARCA: 'mejor_marca', VALOR_ACTUAL: 'valor_actual' });
+
 export const PROYECTO = {
   objetivo: 'App personal para calificar mis planes deslizando tarjetas, y publicada en la App Store.',
-  fase: 3,
-  fase_estado: 1,
+  fase: FASE.DISENO,
+  fase_estado: ESTADO_FASE.EN_CURSO,
   fases_completadas: 2
 };
 
@@ -16,12 +20,26 @@ function proyectoInt(n, lo, hi) {
   return typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
 }
 
+export function enumValido(enumeracion, valor) {
+  return Object.values(enumeracion).indexOf(valor) !== -1;
+}
+
+export function statConservaMaximo(tipo) {
+  return tipo === TIPO_STAT.TOTAL_ACUMULADO || tipo === TIPO_STAT.MEJOR_MARCA;
+}
+
+export function statsDeclarados(stats) {
+  if (Array.isArray(stats)) return stats;
+  if (!stats || typeof stats !== 'object') return [];
+  return Object.keys(stats).map(function (key) { return { key: key, tipo: stats[key] && stats[key].tipo }; });
+}
+
 export function metaProyecto(p) {
   try {
     if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
     const o = p.objetivo;
     if (typeof o !== 'string' || !o.trim() || Array.from(o).length > 140) return null;
-    if (!proyectoInt(p.fase, 1, 7) || !proyectoInt(p.fase_estado, 0, 4) || !proyectoInt(p.fases_completadas, 0, 6)) return null;
+    if (!enumValido(FASE, p.fase) || !enumValido(ESTADO_FASE, p.fase_estado) || !proyectoInt(p.fases_completadas, 0, FASE.LANZAMIENTO_Y_MANTENIMIENTO)) return null;
     return { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
   } catch (e) {
     return null;
@@ -51,12 +69,12 @@ export function setMetaLive(on) {
 export function registerStats(list) {
   declared.length = 0;
   const seen = new Set();
-  for (const item of Array.isArray(list) ? list : []) {
+  for (const item of statsDeclarados(list)) {
     if (declared.length >= 20) break;
     const key = typeof item === "string" ? item : item?.key;
     if (typeof key !== "string" || !key || seen.has(key)) continue;
     seen.add(key);
-    declared.push({ key, monotonic: Boolean(item?.monotonic) });
+    declared.push({ key, tipo: item?.tipo });
   }
 }
 
@@ -118,12 +136,12 @@ function mergeStats(previous, incoming) {
     : {};
   const next = incoming && typeof incoming === "object" && !Array.isArray(incoming) ? incoming : {};
   const stats = {};
-  for (const { key, monotonic } of declared) {
+  for (const { key, tipo } of declared) {
     const newer = next[key];
     const older = prev[key];
     const hasNew = typeof newer === "number" && Number.isFinite(newer);
     const hasOld = typeof older === "number" && Number.isFinite(older);
-    if (hasNew && monotonic && hasOld) stats[key] = Math.max(older, newer);
+    if (hasNew && statConservaMaximo(tipo) && hasOld) stats[key] = Math.max(older, newer);
     else if (hasNew) stats[key] = newer;
     else if (hasOld) stats[key] = older;
   }

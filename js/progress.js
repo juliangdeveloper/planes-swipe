@@ -1,5 +1,5 @@
 import { APP_ID } from "./config.js";
-import { metaBackfill, readMeta, registerStats, scheduleMetaUpdate } from "./meta.js";
+import { TIPO_STAT, metaBackfill, readMeta, registerStats, scheduleMetaUpdate } from "./meta.js";
 import { loadQueue, loadQuieroQueue } from "./queue.js";
 import { isQuieroIr, normalizePreferencia } from "./sheet.js";
 
@@ -10,22 +10,22 @@ const RATING_KEYS = {
   no_me_gusta: "ratings_no_me_gusta",
 };
 
-export const STATS = [
-  { key: "sessions", monotonic: true },
-  { key: "undos", monotonic: true },
-  { key: "plans_total" },
-  { key: "plans_rated" },
-  { key: "plans_unrated" },
-  { key: "ratings_me_encanta" },
-  { key: "ratings_me_gusta" },
-  { key: "ratings_me_interesa" },
-  { key: "ratings_no_me_gusta" },
-  { key: "ratings_other" },
-  { key: "comments" },
-  { key: "quiero_ir" },
-  { key: "queue_pending" },
-  { key: "quiero_pending" },
-];
+export const STATS = Object.freeze({
+  sessions: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: "sesiones abiertas" },
+  undos: { tipo: TIPO_STAT.TOTAL_ACUMULADO, unidad: "calificaciones deshechas" },
+  plans_total: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes en la hoja" },
+  plans_rated: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes calificados" },
+  plans_unrated: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes sin calificar" },
+  ratings_me_encanta: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes calificados me encanta" },
+  ratings_me_gusta: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes calificados me gusta" },
+  ratings_me_interesa: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes calificados me interesa" },
+  ratings_no_me_gusta: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes calificados no me gusta" },
+  ratings_other: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes con otra calificación" },
+  comments: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes con comentario" },
+  quiero_ir: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "planes marcados quiero ir" },
+  queue_pending: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "calificaciones sin sincronizar" },
+  quiero_pending: { tipo: TIPO_STAT.VALOR_ACTUAL, unidad: "marcas quiero ir sin sincronizar" }
+});
 
 registerStats(STATS);
 

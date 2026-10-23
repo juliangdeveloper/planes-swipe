@@ -85,7 +85,7 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     assert.equal(KEY, "meta.v1.planes-swipe");
     assert.equal(record.version.startsWith("v"), false);
     assert.equal(record.updatedAt, "2026-10-23T18:00:00.000Z");
-    assert.deepEqual(Object.keys(record.stats), STATS.map((item) => item.key));
+    assert.deepEqual(Object.keys(record.stats), Object.keys(STATS));
     assert.deepEqual(record.stats, {
       sessions: 1,
       undos: 0,
@@ -348,7 +348,7 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     try {
       const many = Array.from({ length: 21 }, (_, index) => ({
         key: `stat_${String(index).padStart(2, "0")}`,
-        monotonic: index === 0,
+        tipo: index === 0 ? "total_acumulado" : "valor_actual",
       }));
       registerStats(many);
       const storage = createMemoryStorage();

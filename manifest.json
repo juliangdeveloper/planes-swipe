@@ -1,7 +1,7 @@
 {
   "name": "Planes",
   "short_name": "Planes",
-  "version": "0.8.7",
+  "version": "0.8.8",
   "description": "Califica eventos y planes.",
   "start_url": "./",
   "scope": "./",

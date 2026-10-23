@@ -1,5 +1,5 @@
 export const APP_ID = "planes-swipe";
-export const APP_VERSION = "0.8.7";
+export const APP_VERSION = "0.8.8";
 export const STORAGE_CONNECTION_KEY = "planes-swipe.connection.v1";
 export const STORAGE_QUEUE_KEY = "planes-swipe.queue.v1";
 export const STORAGE_QUIERO_KEY = "planes-swipe.quiero.v1";

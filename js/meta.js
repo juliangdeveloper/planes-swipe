@@ -3,9 +3,6 @@ const declared = [];
 const slots = new WeakMap();
 const slotList = new Set();
 
-// Project status, set by hand and bumped with the version. Never computed from play.
-// fase 1-6: Idea, Definición, Diseño, Construcción, Validación, Lanzamiento y mantenimiento.
-// fase_estado 0-4: pendiente, en curso, bloqueada, en revisión, completada.
 export const PROYECTO = {
   objetivo: 'Calificar planes y eventos deslizando tarjetas, sincronizado con tu propia hoja de Google y usable sin conexión.',
   fase: 5,
@@ -19,7 +16,6 @@ function proyectoInt(n, lo, hi) {
   return typeof n === 'number' && Number.isInteger(n) && n >= lo && n <= hi;
 }
 
-// Clean copy of a proyecto block, or null when any field is missing or out of range.
 export function metaProyecto(p) {
   try {
     if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
@@ -32,12 +28,10 @@ export function metaProyecto(p) {
   }
 }
 
-// Tests only: swap the block the writer uses (null restores PROYECTO).
 export function metaSetProyecto(p) {
   proyectoSource = p === null ? PROYECTO : p;
 }
 
-// Adds the current proyecto block to a record being written, when it is valid.
 function withProyecto(record) {
   const p = metaProyecto(proyectoSource);
   if (p) record.proyecto = p;
@@ -176,7 +170,6 @@ function notify(key, record) {
       window.parent.postMessage({ type: "meta", key, data: record }, location.origin);
     }
   } catch {
-    /* ignore */
   }
 }
 
@@ -186,7 +179,6 @@ function commit(job) {
     try {
       job.store.setItem(corruptKey(job.slug), String(found.raw));
     } catch {
-      /* ignore */
     }
   }
   const previous = found.kind === "valid" ? found.record : null;
@@ -231,7 +223,6 @@ function arm(slot) {
     try {
       drain(slot);
     } catch {
-      /* ignore */
     }
   }, wait);
 }
@@ -276,7 +267,6 @@ export function scheduleMetaUpdate(slug, version, payload = {}, storage, now) {
   try {
     enqueue(storeOf(storage), slug, version, payload, now);
   } catch {
-    /* ignore */
   }
 }
 
@@ -300,7 +290,6 @@ export function flushScheduledMeta(storage, slug) {
       commit(job);
     }
   } catch {
-    /* ignore */
   }
 }
 

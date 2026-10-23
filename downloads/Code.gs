@@ -1,9 +1,3 @@
-/**
- * Aplicación web ligada a esta hoja.
- * Lee y escribe solo la primera pestaña (getSheets()[0]).
- * La clave vive en Propiedades del script con el nombre SECRET.
- * No pongas la clave en este archivo.
- */
 
 var RATING_VALUES_ = {
   "": true,

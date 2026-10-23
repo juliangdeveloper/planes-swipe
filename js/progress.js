@@ -10,7 +10,6 @@ const RATING_KEYS = {
   no_me_gusta: "ratings_no_me_gusta",
 };
 
-// Declared keys, in write order. Monotonic counts keep the higher value.
 export const STATS = [
   { key: "sessions", monotonic: true },
   { key: "undos", monotonic: true },
@@ -34,20 +33,19 @@ function finite(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
-// Stable ids. Conditions read counts only.
 export const ACHIEVEMENTS = [
-  { id: "first_session", when: (s) => s.sessions >= 1 }, // opened the app
-  { id: "first_rating", when: (s) => s.plans_rated >= 1 }, // rated one plan
-  { id: "first_comment", when: (s) => s.comments >= 1 }, // saved one comment
-  { id: "first_quiero", when: (s) => s.quiero_ir >= 1 }, // marked quiero ir once
-  { id: "every_rating", when: (s) => s.ratings_me_encanta >= 1 && s.ratings_me_gusta >= 1 && s.ratings_me_interesa >= 1 && s.ratings_no_me_gusta >= 1 }, // used all four ratings
-  { id: "ten_rated", when: (s) => s.plans_rated >= 10 }, // rated 10 plans
-  { id: "fifty_rated", when: (s) => s.plans_rated >= 50 }, // rated 50 plans
-  { id: "hundred_rated", when: (s) => s.plans_rated >= 100 }, // rated 100 plans
-  { id: "ten_quiero", when: (s) => s.quiero_ir >= 10 }, // marked quiero ir on 10 plans
-  { id: "used_undo", when: (s) => s.undos >= 1 }, // undid one rating
-  { id: "offline_queue", when: (s) => s.queue_pending >= 1 || s.quiero_pending >= 1 }, // one change waiting offline
-  { id: "ten_sessions", when: (s) => s.sessions >= 10 }, // opened the app 10 times
+  { id: "first_session", when: (s) => s.sessions >= 1 },
+  { id: "first_rating", when: (s) => s.plans_rated >= 1 },
+  { id: "first_comment", when: (s) => s.comments >= 1 },
+  { id: "first_quiero", when: (s) => s.quiero_ir >= 1 },
+  { id: "every_rating", when: (s) => s.ratings_me_encanta >= 1 && s.ratings_me_gusta >= 1 && s.ratings_me_interesa >= 1 && s.ratings_no_me_gusta >= 1 },
+  { id: "ten_rated", when: (s) => s.plans_rated >= 10 },
+  { id: "fifty_rated", when: (s) => s.plans_rated >= 50 },
+  { id: "hundred_rated", when: (s) => s.plans_rated >= 100 },
+  { id: "ten_quiero", when: (s) => s.quiero_ir >= 10 },
+  { id: "used_undo", when: (s) => s.undos >= 1 },
+  { id: "offline_queue", when: (s) => s.queue_pending >= 1 || s.quiero_pending >= 1 },
+  { id: "ten_sessions", when: (s) => s.sessions >= 10 },
 ];
 
 function earned(stats) {
@@ -56,7 +54,6 @@ function earned(stats) {
     try {
       if (item.when(stats)) ids.push(item.id);
     } catch {
-      /* ignore */
     }
   }
   return ids;

@@ -73,7 +73,7 @@ function publishMeta() {
       sessions: metaSessions,
       undos: metaUndos,
     });
-  } catch { /* ignore */ }
+  } catch { }
 }
 
 function beginMeta() {
@@ -83,7 +83,7 @@ function beginMeta() {
     const started = startProgress(state.storage, state.rows, APP_VERSION, { loaded: rowsLoaded });
     metaSessions = started.sessions;
     metaUndos = started.undos;
-  } catch { /* ignore */ }
+  } catch { }
 }
 
 function el(tag, className, text) {
@@ -108,7 +108,7 @@ function applyThemeColor() {
 function toggleTheme() {
   const next = currentTheme() === "dark" ? "light" : "dark";
   document.documentElement.dataset.theme = next;
-  try { localStorage.setItem(STORAGE_THEME_KEY, next); } catch { /* private mode */ }
+  try { localStorage.setItem(STORAGE_THEME_KEY, next); } catch { }
   applyThemeColor();
 }
 
@@ -135,7 +135,7 @@ function toast(message) {
 }
 
 function tick() {
-  try { navigator.vibrate?.(10); } catch { /* ignore */ }
+  try { navigator.vibrate?.(10); } catch { }
 }
 
 function show(name) {
@@ -1222,7 +1222,7 @@ async function boot() {
     localStorage.setItem(probe, "1");
     localStorage.removeItem(probe);
     state.storage = localStorage;
-  } catch { /* keep memory storage */ }
+  } catch { }
   const saved = loadConnection(state.storage);
   if (!saved) {
     showGate();

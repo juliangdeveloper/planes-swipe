@@ -3,13 +3,11 @@ import { QUIERO_HEADER, RATINGS } from "./config.js";
 const RATING_IDS = new Set(["", ...RATINGS.map((rating) => rating.id)]);
 const NEEDED = ["id", "preferencia", "calificado_en", "comentario_usuario"];
 
-// Sheets written before the rename stored the down-swipe as me_intriga.
 export function normalizePreferencia(value) {
   const text = String(value ?? "").trim();
   return text === "me_intriga" ? "me_interesa" : text;
 }
 
-// Sheets stores the flag as a boolean, which displays as TRUE/FALSE.
 export function isQuieroIr(value) {
   if (value === true) return true;
   return String(value ?? "").trim().toLowerCase() === "true";
@@ -80,8 +78,6 @@ export function isUnrated(row) {
   return !String(row?.preferencia ?? "").trim();
 }
 
-// The values array is aligned to row 1 because the range starts at row 1.
-// Never reuse a row number from a previous read: the sheet is rewritten elsewhere.
 export function findRowNumber(columnValues, id) {
   const want = String(id ?? "").trim();
   if (!want) return null;

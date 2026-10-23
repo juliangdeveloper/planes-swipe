@@ -75,7 +75,7 @@ test("setup downloads match the schema and carry no personal data", () => {
 
   const script = readFileSync(join(root, SCRIPT_REL));
   assert.deepEqual(script, readSourceScript());
-  assert.match(script.toString("utf8"), /getSheets\(\)\[0\]/);
+  assert.match(script.toString("utf8"), /var sheet = sheets\[0\];/);
   assert.match(script.toString("utf8"), /quiero ir/);
 
   const help = readFileSync(join(root, "index.html"), "utf8");

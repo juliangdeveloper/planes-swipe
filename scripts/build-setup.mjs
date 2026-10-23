@@ -1,5 +1,3 @@
-// Regenera downloads/plantilla-eventos.xlsx y downloads/Code.gs
-// desde HEADERS y apps-script/Code.gs. Sin datos personales.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -10,7 +8,6 @@ export const TEMPLATE_REL = "downloads/plantilla-eventos.xlsx";
 export const SCRIPT_REL = "downloads/Code.gs";
 export const SOURCE_SCRIPT_REL = "apps-script/Code.gs";
 
-// Dos planes ficticios. Cada fila declara todas las columnas de HEADERS.
 export const EXAMPLE_ROWS = [
   {
     id: "EJEMPLO-001",
@@ -194,7 +191,6 @@ function crc32(buf) {
   return (c ^ 0xffffffff) >>> 0;
 }
 
-// Fecha fija para que el .xlsx no cambie en cada generación.
 const DOS_TIME = 0;
 const DOS_DATE = ((2026 - 1980) << 9) | (10 << 5) | 18;
 

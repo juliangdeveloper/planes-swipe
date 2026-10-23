@@ -1,13 +1,11 @@
-// planes-swipe v0.8.5 — static config. No URL and no key live in this file.
 export const APP_ID = "planes-swipe";
-export const APP_VERSION = "0.8.5";
+export const APP_VERSION = "0.8.6";
 export const STORAGE_CONNECTION_KEY = "planes-swipe.connection.v1";
 export const STORAGE_QUEUE_KEY = "planes-swipe.queue.v1";
 export const STORAGE_QUIERO_KEY = "planes-swipe.quiero.v1";
 export const STORAGE_THEME_KEY = "planes-swipe.theme";
 export const QUIERO_HEADER = "quiero ir";
 
-// Nombre de la hoja a la que se liga el Apps Script. No es una URL ni una clave.
 export const DEFAULT_SHEET_TITLE = "Eventos y planes";
 
 export const RATINGS = [
@@ -44,7 +42,6 @@ export const HEADERS = [
   QUIERO_HEADER,
 ];
 
-// Una frase por columna, en el mismo orden que HEADERS. La pantalla de ayuda la muestra.
 export const COLUMN_HELP = {
   id: "Identificador único de la fila. Un texto corto, por ejemplo EJEMPLO-001. No lo repitas.",
   fecha_registro: "Fecha en que anotaste el plan. Formato AAAA-MM-DD.",

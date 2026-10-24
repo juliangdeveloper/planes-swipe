@@ -6,12 +6,14 @@ const slotList = new Set();
 export const FASE = Object.freeze({ IDEA: 1, DEFINICION: 2, DISENO: 3, CONSTRUCCION: 4, VALIDACION: 5, LANZAMIENTO_Y_MANTENIMIENTO: 6, DESCARTADA: 7 });
 export const ESTADO_FASE = Object.freeze({ PENDIENTE: 0, EN_CURSO: 1, BLOQUEADA: 2, EN_REVISION: 3, COMPLETADA: 4 });
 export const TIPO_STAT = Object.freeze({ TOTAL_ACUMULADO: 'total_acumulado', MEJOR_MARCA: 'mejor_marca', VALOR_ACTUAL: 'valor_actual' });
+export const TIPO_PROYECTO = Object.freeze({ PROYECTO: 'proyecto', AREA: 'area', RECURSO: 'recurso', ARCHIVO: 'archivo' });
 
 export const PROYECTO = {
   objetivo: 'App personal para calificar mis planes deslizando tarjetas, y publicada en la App Store.',
   fase: FASE.DISENO,
   fase_estado: ESTADO_FASE.EN_CURSO,
-  fases_completadas: 2
+  fases_completadas: 2,
+  tipo: TIPO_PROYECTO.AREA
 };
 
 let proyectoSource = PROYECTO;
@@ -40,7 +42,10 @@ export function metaProyecto(p) {
     const o = p.objetivo;
     if (typeof o !== 'string' || !o.trim() || Array.from(o).length > 140) return null;
     if (!enumValido(FASE, p.fase) || !enumValido(ESTADO_FASE, p.fase_estado) || !proyectoInt(p.fases_completadas, 0, FASE.LANZAMIENTO_Y_MANTENIMIENTO)) return null;
-    return { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
+    if (p.tipo !== undefined && !enumValido(TIPO_PROYECTO, p.tipo)) return null;
+    const bloque = { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
+    if (p.tipo !== undefined) bloque.tipo = p.tipo;
+    return bloque;
   } catch (e) {
     return null;
   }

@@ -12,7 +12,8 @@ export const PROYECTO = {
   objetivo: 'App personal para calificar mis planes deslizando tarjetas, y publicada en la App Store.',
   fase: FASE.DISENO,
   fase_estado: ESTADO_FASE.EN_CURSO,
-  fases_completadas: 2
+  fases_completadas: 2,
+  tipo: TIPO_PROYECTO.AREA
 };
 
 let proyectoSource = PROYECTO;

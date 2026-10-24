@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { APP_ID } from "../js/config.js";
-import { PROYECTO, metaBackfill, metaProyecto, metaSetProyecto, metaStorageKey, metaUpdate, setMetaLive } from "../js/meta.js";
+import { PROYECTO, metaBackfill, metaProyecto, metaSetProyecto, metaStorageKey, metaUpdate, setMetaLive, FASE, TIPO_PROYECTO } from "../js/meta.js";
 import { STATS } from "../js/progress.js";
 
 function createMemoryStorage(initial = {}) {
@@ -99,4 +99,57 @@ test("a stored record with a different proyecto gets the current block on the ne
 test("fase 7 (Descartada) is accepted", () => {
   const D = { ...PROYECTO, fase: 7, fase_estado: 4 };
   assert.deepEqual(metaProyecto(D), D);
+});
+
+test("tipo is optional, independent of fase, and must be a TIPO_PROYECTO value", () => {
+  assert.strictEqual("tipo" in metaProyecto(PROYECTO), false);
+  for (const tipo of Object.values(TIPO_PROYECTO)) {
+    for (const fase of Object.values(FASE)) {
+      const p = Object.assign({}, PROYECTO, { fase, tipo });
+      assert.deepStrictEqual(metaProyecto(p), p);
+    }
+  }
+  for (const tipo of ["", "Proyecto", "otro", 1, null, {}, []]) {
+    assert.strictEqual(metaProyecto(Object.assign({}, PROYECTO, { tipo })), null);
+  }
+});
+
+test("a stored proyecto with an invalid tipo is tolerated and replaced on the next write", () => {
+  const old = {
+    v: 1, slug: APP_ID, version: "0.8.4", updatedAt: "2026-01-01T00:00:00.000Z",
+    stats: {}, logros: ["first_session"], hitos: { first_session: "2026-01-01T00:00:00.000Z" },
+    proyecto: { extra: 1, objetivo: "Objetivo anterior.", fase: 2, fase_estado: 3, fases_completadas: 1, tipo: "no_vale" },
+  };
+  const storage = createMemoryStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(APP_ID, "v9.9.9", { stats: {}, logros: [] }, storage, NOW);
+  const rec = JSON.parse(storage.getItem(KEY));
+  assert.deepEqual(rec.proyecto, { ...PROYECTO });
+  assert.equal(rec.hitos.first_session, "2026-01-01T00:00:00.000Z");
+  assert.equal(storage.getItem(`${KEY}.corrupt`), null);
+
+  metaSetProyecto(Object.assign({}, PROYECTO, { tipo: "no_vale" }));
+  const second = createMemoryStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(APP_ID, "v9.9.9", { stats: {}, logros: [] }, second, NOW);
+  assert.equal("proyecto" in JSON.parse(second.getItem(KEY)), false);
+});
+
+test("an old record without tipo gains a valid tipo on the next write and keeps stats and hitos", () => {
+  metaSetProyecto(Object.assign({}, PROYECTO, { tipo: TIPO_PROYECTO.RECURSO }));
+  const old = {
+    v: 1, slug: APP_ID, version: "0.8.4", updatedAt: "2026-01-01T00:00:00.000Z",
+    stats: { sessions: 7 }, logros: ["first_session"], hitos: { first_session: "2026-01-01T00:00:00.000Z" },
+    proyecto: { extra: 1, objetivo: "Objetivo anterior.", fase: 2, fase_estado: 3, fases_completadas: 1 },
+  };
+  const storage = createMemoryStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(APP_ID, "v9.9.9", { stats: {}, logros: [] }, storage, NOW);
+  const rec = JSON.parse(storage.getItem(KEY));
+  assert.deepEqual(rec.proyecto, Object.assign({}, PROYECTO, { tipo: "recurso" }));
+  assert.equal(rec.hitos.first_session, "2026-01-01T00:00:00.000Z");
+  assert.equal(storage.getItem(`${KEY}.corrupt`), null);
+  assert.strictEqual(rec.stats.sessions, 7);
+
+  metaSetProyecto({ fase: 9 });
+  const second = createMemoryStorage({ [KEY]: JSON.stringify(old) });
+  metaUpdate(APP_ID, "v9.9.9", { stats: {}, logros: [] }, second, NOW);
+  assert.equal("proyecto" in JSON.parse(second.getItem(KEY)), false);
 });

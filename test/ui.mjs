@@ -6,8 +6,166 @@ import { extname, join, normalize } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
+import { HEADERS, STORAGE_CONNECTION_KEY } from "../js/config.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROWS = [
+  {
+    id: "EV-101",
+    fecha_registro: "2026-10-01",
+    nombre_evento: "Festival Sonido Abierto",
+    categoria: "Música",
+    fecha_evento: "2026-11-21",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Parque Central",
+    precio: "480000",
+    estado: "Entradas a la venta",
+    link_info: "https://example.com/sonido-abierto",
+    link_entradas: "https://example.com/entradas",
+    para_quien: "Ambos",
+    motivo_recomendacion: "El sábado cierran con la banda que Acompañante tiene en repetir, y Usuario ya apartó la tarde.",
+    ultima_revision: "2026-10-12",
+    preferencia: "",
+    calificado_en: "",
+    comentario_usuario: "",
+    imagen_1: "fixture/festival.svg",
+    imagen_2: "https://foto-inexistente.invalid/evento.jpg",
+    imagen_3: "fixture/lights.svg",
+  },
+  {
+    id: "EV-102",
+    fecha_registro: "2026-10-02",
+    nombre_evento: "La casa de los espíritus",
+    categoria: "Teatro",
+    fecha_evento: "2026-11-02",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Teatro Municipal",
+    precio: "90000",
+    estado: "Solo anuncio",
+    link_info: "https://example.com/teatro",
+    link_entradas: "",
+    para_quien: "Usuario",
+    motivo_recomendacion: "Función de domingo en la tarde, sin micrófono a todo volumen.",
+    ultima_revision: "2026-10-11",
+    preferencia: "",
+    imagen_1: "fixture/theater.svg",
+  },
+  {
+    id: "EV-103",
+    fecha_registro: "2026-10-03",
+    nombre_evento: "Mercado campesino",
+    categoria: "Comida",
+    fecha_evento: "2026-10-18",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Plaza Vieja",
+    precio: "Gratis",
+    estado: "Solo anuncio",
+    para_quien: "Acompañante",
+    motivo_recomendacion: "Hay puesto de obleas y termina antes de que oscurezca.",
+    ultima_revision: "2026-10-10",
+    preferencia: "",
+    imagen_1: "fixture/market.svg",
+  },
+  {
+    id: "EV-104",
+    fecha_registro: "2026-10-04",
+    nombre_evento: "Noche en la Arena Norte",
+    categoria: "Música",
+    fecha_evento: "2026-12-05",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Arena Norte",
+    precio: "350000",
+    estado: "Agotado",
+    para_quien: "Ambos",
+    motivo_recomendacion: "Solo si reaparece una reventa decente. Si no, se deja ir.",
+    ultima_revision: "2026-10-09",
+    preferencia: "",
+    imagen_1: "fixture/arena.svg",
+  },
+  {
+    id: "EV-088",
+    fecha_registro: "2026-09-12",
+    nombre_evento: "Ciclovía nocturna",
+    categoria: "Aire libre",
+    fecha_evento: "2026-10-25",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Avenida del Río",
+    precio: "Gratis",
+    estado: "Solo anuncio",
+    para_quien: "Ambos",
+    motivo_recomendacion: "La avenida se presta para ir sin afán.",
+    ultima_revision: "2026-10-08",
+    preferencia: "me_encanta",
+    calificado_en: "2026-10-10T19:04:00-05:00",
+    comentario_usuario: "Repetir cuando abran el otro tramo",
+    imagen_1: "fixture/park.svg",
+    "quiero ir": "TRUE",
+  },
+  {
+    id: "EV-074",
+    fecha_registro: "2026-09-20",
+    nombre_evento: "Cine en el parque",
+    categoria: "Cine",
+    fecha_evento: "2026-10-30",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Parque del Lago",
+    precio: "Gratis",
+    estado: "Entradas a la venta",
+    para_quien: "Acompañante",
+    motivo_recomendacion: "Llevan cobija y salen caminando.",
+    ultima_revision: "2026-10-07",
+    preferencia: "me_gusta",
+    calificado_en: "2026-10-09T21:12:00-05:00",
+    comentario_usuario: "",
+    imagen_1: "fixture/cinema.svg",
+  },
+  {
+    id: "EV-061",
+    fecha_registro: "2026-09-01",
+    nombre_evento: "Feria del libro",
+    categoria: "Cultura",
+    fecha_evento: "2026-11-08",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Centro de Convenciones",
+    precio: "20000",
+    estado: "Entradas a la venta",
+    para_quien: "Usuario",
+    motivo_recomendacion: "Un rato en la tarde, sin recorrer todo el pabellón.",
+    ultima_revision: "2026-10-06",
+    preferencia: "me_interesa",
+    calificado_en: "2026-10-08T18:40:00-05:00",
+    comentario_usuario: "Mirar la programación del sábado",
+    imagen_1: "fixture/books.svg",
+  },
+  {
+    id: "EV-055",
+    fecha_registro: "2026-08-18",
+    nombre_evento: "Partido en el Estadio Municipal",
+    categoria: "Deporte",
+    fecha_evento: "2026-11-15",
+    ciudad: "Puerto Lumbre",
+    departamento: "Región Norte",
+    lugar: "Estadio Municipal",
+    precio: "120000",
+    estado: "Cancelado",
+    para_quien: "Usuario",
+    motivo_recomendacion: "Quedó en el radar por los horarios, nada más.",
+    ultima_revision: "2026-10-05",
+    preferencia: "no_me_gusta",
+    calificado_en: "2026-10-06T16:02:00-05:00",
+    comentario_usuario: "Mucho taco y poco plan",
+    imagen_1: "fixture/arena.svg",
+  },
+];
+
+const ENDPOINT = "https://script.google.com/macros/s/ui-test/exec";
 const shots = process.env.SHOTS_DIR || "";
 const TYPES = {
   ".html": "text/html; charset=utf-8",
@@ -21,6 +179,11 @@ function startServer() {
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, "http://127.0.0.1");
     let path = decodeURIComponent(url.pathname);
+    if (path.startsWith("/fixture/")) {
+      res.writeHead(200, { "Content-Type": "image/svg+xml", "Cache-Control": "no-store" });
+      res.end('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300"><rect width="400" height="300" fill="#8aa"/></svg>');
+      return;
+    }
     if (path.endsWith("/")) path += "index.html";
     const file = normalize(join(root, path));
     if (!file.startsWith(root)) {
@@ -131,8 +294,41 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
       if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", apply);
       else apply();
     });
+    const fixture = ROWS.map((row) => {
+      const full = Object.fromEntries(HEADERS.map((header) => [header, String(row[header] ?? "")]));
+      for (const key of ["imagen_1", "imagen_2", "imagen_3"]) {
+        if (full[key].startsWith("fixture/")) full[key] = `http://127.0.0.1:${port}/${full[key]}`;
+      }
+      return full;
+    });
+    await page.evaluateOnNewDocument((rows, endpoint, storageKey) => {
+      if (!location.protocol.startsWith("http")) return;
+      if (!sessionStorage.getItem("ui-seeded")) {
+        sessionStorage.setItem("ui-seeded", "1");
+        localStorage.setItem(storageKey, JSON.stringify({ url: endpoint, key: "ui-test" }));
+      }
+      const data = rows.map((row) => ({ ...row }));
+      const realFetch = window.fetch.bind(window);
+      const reply = (body) => new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
+      window.fetch = async (input, options = {}) => {
+        const url = new URL(String(input), location.href);
+        if (url.origin + url.pathname !== endpoint) return realFetch(input, options);
+        if ((options.method || "GET") === "GET") return reply({ ok: true, title: "Eventos y planes", rows: data });
+        const body = JSON.parse(options.body || "{}");
+        const row = data.find((item) => item.id === body.id);
+        if (!row) return reply({ ok: false, error: "missing_id" });
+        if (body.action === "quiero") {
+          row["quiero ir"] = body.quiero_ir === true ? "TRUE" : "FALSE";
+          return reply({ ok: true, "quiero ir": row["quiero ir"] });
+        }
+        row.preferencia = body.preferencia;
+        row.comentario_usuario = body.comentario_usuario || "";
+        row.calificado_en = new Date().toISOString();
+        return reply({ ok: true, preferencia: row.preferencia, calificado_en: row.calificado_en, comentario_usuario: row.comentario_usuario });
+      };
+    }, fixture, ENDPOINT, STORAGE_CONNECTION_KEY);
     await page.setViewport({ width: 375, height: 812, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
-    await page.goto(`http://127.0.0.1:${port}/?demo=1&nosw=1`, { waitUntil: "load" });
+    await page.goto(`http://127.0.0.1:${port}/?nosw=1`, { waitUntil: "load" });
     await page.waitForSelector("#top-card .name");
     await page.evaluate(() => document.fonts.ready);
 
@@ -361,9 +557,10 @@ test("swipe ui at 375x812", { timeout: 120000 }, async (t) => {
       return group?.textContent.includes("Estadio Municipal");
     });
 
+    await page.evaluate((storageKey) => localStorage.removeItem(storageKey), STORAGE_CONNECTION_KEY);
     await page.goto(`http://127.0.0.1:${port}/?nosw=1`, { waitUntil: "load" });
     await page.waitForSelector("#gate:not([hidden]) #gate-help");
-    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.8.12");
+    assert.equal(await page.$eval("#version", (el) => el.textContent), "planes-swipe v0.8.13");
     const gateIcons = await page.evaluate(() => ({
       moon: getComputedStyle(document.querySelector("#theme .icon-moon")).display,
       sun: getComputedStyle(document.querySelector("#theme .icon-sun")).display,

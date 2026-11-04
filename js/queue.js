@@ -64,7 +64,6 @@ export function enqueueQuiero(storage, job) {
     id: String(job.id).trim(),
     quiero: job.quiero === true,
     endpoint: typeof job.endpoint === "string" ? job.endpoint : "",
-    fileId: typeof job.fileId === "string" ? job.fileId : "",
   });
   storage.setItem(STORAGE_QUIERO_KEY, JSON.stringify(jobs));
   return jobs;

@@ -147,7 +147,6 @@ h1 {
   white-space: nowrap;
 }
 
-.badge.demo { color: var(--blue); }
 
 .sheet-btn, .count {
   display: block;

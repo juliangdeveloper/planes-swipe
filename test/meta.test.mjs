@@ -9,7 +9,7 @@ import {
   STORAGE_QUIERO_KEY,
   STORAGE_THEME_KEY,
 } from "../js/config.js";
-import { flushMetaForHide, metaStorageKey, metaUpdate, registerStats, scheduleMetaUpdate, setMetaLive } from "../js/meta.js";
+import { flushMetaForHide, metaStorageKey, metaUpdate, registerStats, scheduleMetaUpdate } from "../js/meta.js";
 import { STATS, backfillProgress, startProgress, syncProgress } from "../js/progress.js";
 import { createMemoryStorage } from "../js/queue.js";
 
@@ -478,7 +478,6 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
       assert.deepEqual(hiddenWrites, [KEY, KEY]);
     } finally {
       mock.timers.reset();
-      setMetaLive(true);
       if (previousWindow === undefined) delete globalThis.window;
       else globalThis.window = previousWindow;
       if (previousLocation === undefined) delete globalThis.location;
@@ -486,54 +485,4 @@ test("meta.v1 progress record", { concurrency: 1 }, async (t) => {
     }
   });
 
-  await t.test("demo mode does not write or postMessage and real mode does", () => {
-    const messages = [];
-    const previousWindow = globalThis.window;
-    const previousLocation = globalThis.location;
-    globalThis.window = {
-      parent: {
-        postMessage(data, origin) {
-          messages.push({ data, origin });
-        },
-      },
-    };
-    globalThis.location = { origin: "https://planes.test" };
-    try {
-      setMetaLive(false);
-      const storage = createMemoryStorage();
-      seedOldSave(storage);
-      const before = savedKeys(storage);
-      const rows = [{ preferencia: "me_encanta", comentario_usuario: COMMENT_A, nombre_evento: NAME, "quiero ir": "TRUE" }];
-      startProgress(storage, rows, APP_VERSION, { loaded: true });
-      syncProgress(storage, rows, APP_VERSION, { sessions: 4, undos: 1 });
-      backfillProgress(storage, rows, APP_VERSION, NOW);
-      scheduleMetaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 3 }, logros: ["first_session"] }, storage, NOW);
-      metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 3 }, logros: ["first_session"] }, storage, NOW);
-      flushMetaForHide("pagehide", storage, APP_ID);
-      flushMetaForHide("visibilitychange", storage, APP_ID, "hidden");
-      assert.equal(storage.getItem(KEY), null);
-      assert.equal(storage.getItem(CORRUPT), null);
-      assert.deepEqual(messages, []);
-      assert.deepEqual(savedKeys(storage), before);
-      assert.equal(JSON.stringify(savedKeys(storage)).includes(NAME), false);
-
-      setMetaLive(true);
-      const real = createMemoryStorage();
-      const record = metaUpdate(APP_ID, APP_VERSION, { stats: { sessions: 1 }, logros: ["first_session"] }, real, NOW);
-      assert.equal(record.stats.sessions, 1);
-      assert.equal(record.slug, APP_ID);
-      assert.equal(messages.length, 1);
-      assert.equal(messages[0].origin, "https://planes.test");
-      assert.equal(messages[0].data.type, "meta");
-      assert.equal(messages[0].data.key, KEY);
-      assert.equal(messages[0].data.data.stats.sessions, 1);
-      assert.equal(real.getItem(KEY).includes(NAME), false);
-    } finally {
-      setMetaLive(true);
-      if (previousWindow === undefined) delete globalThis.window;
-      else globalThis.window = previousWindow;
-      if (previousLocation === undefined) delete globalThis.location;
-      else globalThis.location = previousLocation;
-    }
-  });
 });

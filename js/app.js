@@ -7,9 +7,8 @@ import {
   RATINGS,
   STORAGE_THEME_KEY,
 } from "./config.js";
-import { DEMO_TITLE, demoMatrix } from "./demo.js";
 import { bogotaIso, formatFecha, formatLugar, formatPrecio, safeHttpUrl, safeImageUrl } from "./format.js";
-import { flushMetaForHide, setMetaLive } from "./meta.js";
+import { flushMetaForHide, metaDeclararProyecto } from "./meta.js";
 import { startProgress, syncProgress } from "./progress.js";
 import { createMemoryStorage, enqueue, enqueueQuiero, isNetworkError, loadQueue, loadQuieroQueue, removeQueued, removeQuiero } from "./queue.js";
 import {
@@ -22,20 +21,14 @@ import {
   saveConnection,
 } from "./script.js";
 import {
-  commitQuieroRetry,
-  commitRatingRetry,
-  createMemoryClient,
   isQuieroIr,
   isUnrated,
-  loadGrid,
   normalizePreferencia,
   quieroText,
 } from "./sheet.js";
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
-const demo = params.get("demo") === "1";
-setMetaLive(!demo);
 const DIR = { left: "no_me_gusta", right: "me_gusta", up: "me_encanta", down: "me_interesa" };
 const ESTADO = {
   "Solo anuncio": "anuncio",
@@ -49,7 +42,6 @@ const state = {
   rows: [],
   connection: null,
   spreadsheetTitle: "",
-  client: null,
   storage: null,
   undo: null,
   busy: false,
@@ -67,7 +59,7 @@ let metaSessions = 0;
 let metaUndos = 0;
 
 function publishMeta() {
-  if (demo || !metaStarted || !rowsLoaded || !state.storage) return;
+  if (!metaStarted || !rowsLoaded || !state.storage) return;
   try {
     syncProgress(state.storage, state.rows, APP_VERSION, {
       sessions: metaSessions,
@@ -77,13 +69,14 @@ function publishMeta() {
 }
 
 function beginMeta() {
-  if (demo || metaStarted || !state.storage) return;
+  if (metaStarted || !state.storage) return;
   metaStarted = true;
   try {
     const started = startProgress(state.storage, state.rows, APP_VERSION, { loaded: rowsLoaded });
     metaSessions = started.sessions;
     metaUndos = started.undos;
   } catch { }
+  metaDeclararProyecto(APP_ID, APP_VERSION);
 }
 
 function el(tag, className, text) {
@@ -148,7 +141,6 @@ function show(name) {
 
 function queuedJobs() {
   const jobs = loadQueue(state.storage);
-  if (demo) return jobs.filter((job) => job.fileId === "demo");
   const endpoint = state.connection?.url;
   return jobs.filter((job) => job.endpoint === endpoint);
 }
@@ -173,7 +165,7 @@ function overlayQueue() {
 
 function applyQuieroIntent(serverFlags) {
   const queued = new Map();
-  if (!demo && state.connection) {
+  if (state.connection) {
     for (const job of loadQuieroQueue(state.storage)) {
       if (job.endpoint === state.connection.url) queued.set(job.id, job.quiero === true);
     }
@@ -195,29 +187,19 @@ function applyQuieroIntent(serverFlags) {
 }
 
 async function refreshRows() {
-  if (demo) {
-    const grid = await loadGrid(state.client, "demo");
-    state.rows = grid.rows;
-    state.spreadsheetTitle = grid.spreadsheetTitle || DEMO_TITLE;
-    const missing = ["id", "preferencia", "calificado_en", "comentario_usuario"].filter(
-      (name) => !grid.headers.includes(name),
-    );
-    if (missing.length) throw Object.assign(new Error("headers"), { code: "headers", missing });
-  } else {
-    const body = await listRows(state.connection.url, state.connection.key);
-    if (!body || body.ok !== true || !Array.isArray(body.rows)) {
-      throw Object.assign(new Error(body?.error || "bad_request"), { code: body?.error || "bad_request" });
-    }
-    state.rows = body.rows.map((row) => ({
-      ...row,
-      id: String(row?.id ?? "").trim(),
-      preferencia: normalizePreferencia(row?.preferencia),
-      calificado_en: String(row?.calificado_en ?? ""),
-      comentario_usuario: String(row?.comentario_usuario ?? ""),
-      "quiero ir": quieroText(row?.["quiero ir"]),
-    })).filter((row) => row.id);
-    state.spreadsheetTitle = String(body.title || "Planes");
+  const body = await listRows(state.connection.url, state.connection.key);
+  if (!body || body.ok !== true || !Array.isArray(body.rows)) {
+    throw Object.assign(new Error(body?.error || "bad_request"), { code: body?.error || "bad_request" });
   }
+  state.rows = body.rows.map((row) => ({
+    ...row,
+    id: String(row?.id ?? "").trim(),
+    preferencia: normalizePreferencia(row?.preferencia),
+    calificado_en: String(row?.calificado_en ?? ""),
+    comentario_usuario: String(row?.comentario_usuario ?? ""),
+    "quiero ir": quieroText(row?.["quiero ir"]),
+  })).filter((row) => row.id);
+  state.spreadsheetTitle = String(body.title || "Planes");
   const serverFlags = new Map(state.rows.map((row) => [row.id, isQuieroIr(row["quiero ir"])]));
   overlayQueue();
   applyQuieroIntent(serverFlags);
@@ -644,7 +626,6 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
     preferencia: normalizePreferencia(preferencia),
     comentario: String(comentario ?? "").trim(),
     calificado_en: when,
-    fileId: demo ? "demo" : "",
     endpoint: state.connection?.url || "",
   };
   try {
@@ -713,15 +694,6 @@ async function finishRating(id, preferencia, comentario, calificadoEn) {
 }
 
 async function persistRating(job) {
-  if (demo) {
-    return commitRatingRetry(state.client, {
-      spreadsheetId: "demo",
-      eventId: job.id,
-      preferencia: job.preferencia,
-      comentario: job.comentario,
-      calificadoEn: job.calificado_en,
-    });
-  }
   return rateWithRetry(state.connection.url, state.connection.key, {
     id: job.id,
     preferencia: job.preferencia,
@@ -758,15 +730,6 @@ function revertQuiero(id, value, reason) {
 }
 
 async function persistQuiero(id, want) {
-  if (demo) {
-    const result = await commitQuieroRetry(state.client, {
-      spreadsheetId: "demo",
-      eventId: id,
-      quiero: want === true,
-    });
-    if (!result.ok) return { ok: false, reason: result.reason, retried: Boolean(result.retried) };
-    return { ok: true, "quiero ir": result["quiero ir"] || quieroText(want), retried: Boolean(result.retried) };
-  }
   const job = { id, quiero: want === true, endpoint: state.connection?.url || "" };
   if (navigator.onLine === false) {
     enqueueQuiero(state.storage, job);
@@ -828,7 +791,7 @@ function onQuiero(id) {
 }
 
 async function flushQuieroQueue() {
-  if (state.flushingQuiero || demo || !state.connection) return;
+  if (state.flushingQuiero || !state.connection) return;
   const jobs = loadQuieroQueue(state.storage).filter((job) => job.endpoint === state.connection.url);
   if (!jobs.length) return;
   state.flushingQuiero = true;
@@ -873,7 +836,7 @@ async function flushQuieroQueue() {
 }
 
 async function flushQueue() {
-  if (state.flushing || demo || !state.connection) return;
+  if (state.flushing || !state.connection) return;
   const jobs = queuedJobs();
   if (!jobs.length) return;
   state.flushing = true;
@@ -1063,10 +1026,6 @@ async function onTestConnection(settings) {
 }
 
 function openSettings() {
-  if (demo) {
-    toast("La demo no cambia la conexión.");
-    return;
-  }
   const current = state.connection || loadConnection(state.storage) || { url: "", key: "" };
   $("settings-url").value = current.url;
   $("settings-key").value = current.key;
@@ -1089,10 +1048,8 @@ function onClearConnection() {
 async function onRefresh() {
   if (state.busy) return;
   try {
-    if (!demo) {
-      await flushQueue();
-      await flushQuieroQueue();
-    }
+    await flushQueue();
+    await flushQuieroQueue();
     if (state.view === "gate" || state.view === "loading") return;
     await refreshRows();
     toast("Lista actualizada.");
@@ -1191,11 +1148,9 @@ function bindUi() {
     void flushQuieroQueue();
   });
   window.addEventListener("pagehide", () => {
-    if (demo) return;
     flushMetaForHide("pagehide", state.storage, APP_ID);
   });
   document.addEventListener("visibilitychange", () => {
-    if (demo) return;
     flushMetaForHide("visibilitychange", state.storage, APP_ID, document.visibilityState);
   });
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
@@ -1208,14 +1163,6 @@ async function boot() {
   applyThemeColor();
   renderColumnHelp();
   $("version").textContent = `planes-swipe v${APP_VERSION}`;
-  if (demo) {
-    $("demo-badge").hidden = false;
-    state.storage = createMemoryStorage();
-    state.client = createMemoryClient(demoMatrix(), { title: "Eventos", spreadsheetTitle: DEMO_TITLE });
-    state.view = "stack";
-    await refreshRows();
-    return;
-  }
   state.storage = createMemoryStorage();
   try {
     const probe = "__planes";

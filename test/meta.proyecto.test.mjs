@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { APP_ID } from "../js/config.js";
-import { PROYECTO, metaBackfill, metaProyecto, metaSetProyecto, metaStorageKey, metaUpdate, setMetaLive, FASE, TIPO_PROYECTO } from "../js/meta.js";
+import { PROYECTO, metaBackfill, metaProyecto, metaSetProyecto, metaStorageKey, metaUpdate, FASE, TIPO_PROYECTO } from "../js/meta.js";
 import { STATS } from "../js/progress.js";
 
 function createMemoryStorage(initial = {}) {
@@ -16,7 +16,7 @@ function createMemoryStorage(initial = {}) {
 const KEY = metaStorageKey(APP_ID);
 const NOW = new Date("2026-10-23T18:00:00.000Z");
 
-test.beforeEach(() => { setMetaLive(true); metaSetProyecto(null); });
+test.beforeEach(() => { metaSetProyecto(null); });
 test.after(() => metaSetProyecto(null));
 
 test("PROYECTO is a valid block within the shared ranges", () => {

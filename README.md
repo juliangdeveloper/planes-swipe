@@ -2,7 +2,7 @@
 
 > Califica eventos y planes al estilo Tinder, conectado a tu propia hoja de Google.
 
-**[▶ Ver demo](https://juliangdeveloper.github.io/planes-swipe/?demo=1)** · datos de ejemplo, sin conectar nada
+**[▶ Abrir la app](https://juliangdeveloper.github.io/planes-swipe/)**
 
 <img src="docs/screenshot.png" alt="Tarjeta de un plan en planes-swipe con los botones para calificar" width="320">
 
@@ -24,13 +24,14 @@ La app lee y escribe en una hoja de Google a través de un Apps Script que publi
 
 ## Stack
 JavaScript vanilla (módulos ES), service worker para uso offline y Google Apps Script como backend. Sin bundler.
+Al abrirse guarda el progreso en `localStorage` (`meta.v1.planes-swipe`), que lee el [portafolio](https://juliangdeveloper.github.io/).
 
 ```
-python3 -m http.server 8000   # abrir http://localhost:8000/?demo=1
+python3 -m http.server 8000   # abrir http://localhost:8000
 node --test                   # tests
 ```
 
-Versión actual: `planes-swipe v0.8.12`.
+Versión actual: `planes-swipe v0.8.13`.
 
 ---
 

@@ -39,7 +39,7 @@ function eventRow() {
     preferencia: "",
     calificado_en: "",
     comentario_usuario: "",
-    imagen_1: "img/books.svg",
+    imagen_1: "",
     imagen_2: "",
     imagen_3: "",
   };

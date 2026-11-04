@@ -1,8 +1,8 @@
-const CACHE = "planes-swipe-v0.8.11";
+const CACHE = "planes-swipe-v0.8.12";
 const ASSETS = [
   "./",
   "./index.html",
-  "./css/styles.css?v=0.8.11",
+  "./css/styles.css?v=0.8.12",
   "./js/config.js",
   "./js/format.js",
   "./js/sheet.js",
@@ -11,9 +11,9 @@ const ASSETS = [
   "./js/demo.js",
   "./js/meta.js",
   "./js/progress.js",
-  "./js/app.js?v=0.8.11",
+  "./js/app.js?v=0.8.12",
   "./favicon.svg",
-  "./manifest.json?v=0.8.11",
+  "./manifest.json?v=0.8.12",
   "./downloads/plantilla-eventos.xlsx",
   "./downloads/Code.gs",
   "./downloads/conectar-ia-prompt.md",

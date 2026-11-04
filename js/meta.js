@@ -13,7 +13,16 @@ export const PROYECTO = {
   fase: FASE.CONSTRUCCION,
   fase_estado: ESTADO_FASE.EN_CURSO,
   fases_completadas: 3,
-  tipo: TIPO_PROYECTO.AREA
+  tipo: TIPO_PROYECTO.AREA,
+  aportes: [
+    { id: 'programacion', aporte: 2, fuente: 'creacion' },
+    { id: 'ux', aporte: 2, fuente: 'creacion' },
+    { id: 'datos', aporte: 2, fuente: 'creacion' },
+    { id: 'persistencia', aporte: 1, fuente: 'creacion' },
+    { id: 'organizacion', aporte: 2, fuente: 'uso' },
+    { id: 'disciplina', aporte: 1, fuente: 'uso' },
+    { id: 'perseverancia', aporte: 1, fuente: 'uso' }
+  ]
 };
 
 let proyectoSource = PROYECTO;
@@ -36,6 +45,28 @@ export function statsDeclarados(stats) {
   return Object.keys(stats).map(function (key) { return { key: key, tipo: stats[key] && stats[key].tipo }; });
 }
 
+function aportesValidos(lista) {
+  if (!Array.isArray(lista)) return null;
+  const out = [];
+  const seen = {};
+  for (let i = 0; i < lista.length; i++) {
+    const it = lista[i];
+    if (!it || typeof it !== 'object' || Array.isArray(it)) return null;
+    const id = it.id;
+    const fuente = it.fuente;
+    const aporte = it.aporte;
+    if (typeof id !== 'string' || !/^[a-z][a-z0-9]*$/.test(id)) return null;
+    if (fuente !== 'creacion' && fuente !== 'uso') return null;
+    if (!proyectoInt(aporte, 1, 3)) return null;
+    const key = id + '\n' + fuente;
+    if (seen[key]) return null;
+    if (Object.keys(it).length !== 3) return null;
+    seen[key] = true;
+    out.push({ id: id, aporte: aporte, fuente: fuente });
+  }
+  return out;
+}
+
 export function metaProyecto(p) {
   try {
     if (!p || typeof p !== 'object' || Array.isArray(p)) return null;
@@ -45,6 +76,12 @@ export function metaProyecto(p) {
     if (p.tipo !== undefined && !enumValido(TIPO_PROYECTO, p.tipo)) return null;
     const bloque = { objetivo: o, fase: p.fase, fase_estado: p.fase_estado, fases_completadas: p.fases_completadas };
     if (p.tipo !== undefined) bloque.tipo = p.tipo;
+    if (p.bloqueada === true) bloque.bloqueada = true;
+    if (p.aportes !== undefined) {
+      const aportes = aportesValidos(p.aportes);
+      if (!aportes) return null;
+      bloque.aportes = aportes;
+    }
     return bloque;
   } catch (e) {
     return null;

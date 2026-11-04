@@ -18,7 +18,7 @@ test("los enums están congelados y PROYECTO usa sus valores", () => {
   for (const e of [FASE, ESTADO_FASE, TIPO_STAT, STATS]) assert.ok(Object.isFrozen(e));
   assert.deepEqual(Object.values(FASE), [1, 2, 3, 4, 5, 6, 7]);
   assert.deepEqual(Object.values(ESTADO_FASE), [0, 1, 2, 3, 4]);
-  assert.equal(PROYECTO.fase, FASE.DISENO);
+  assert.equal(PROYECTO.fase, FASE.CONSTRUCCION);
   assert.equal(PROYECTO.fase_estado, ESTADO_FASE.EN_CURSO);
   assert.deepEqual(metaProyecto(PROYECTO), { ...PROYECTO });
 });

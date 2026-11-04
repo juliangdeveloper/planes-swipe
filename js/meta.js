@@ -1,4 +1,3 @@
-const live = { on: true };
 const declared = [];
 const slots = new WeakMap();
 const slotList = new Set();
@@ -15,13 +14,9 @@ export const PROYECTO = {
   fases_completadas: 3,
   tipo: TIPO_PROYECTO.AREA,
   aportes: [
-    { id: 'programacion', aporte: 2, fuente: 'creacion' },
-    { id: 'ux', aporte: 2, fuente: 'creacion' },
-    { id: 'datos', aporte: 2, fuente: 'creacion' },
-    { id: 'persistencia', aporte: 1, fuente: 'creacion' },
-    { id: 'organizacion', aporte: 2, fuente: 'uso' },
-    { id: 'disciplina', aporte: 1, fuente: 'uso' },
-    { id: 'perseverancia', aporte: 1, fuente: 'uso' }
+    { stat: 'Programación', exp: 28, fuente: 'creacion' },
+    { stat: 'Diseño', exp: 9, fuente: 'creacion' },
+    { stat: 'Toma de decisiones', exp: 10, fuente: 'uso' }
   ]
 };
 
@@ -45,6 +40,9 @@ export function statsDeclarados(stats) {
   return Object.keys(stats).map(function (key) { return { key: key, tipo: stats[key] && stats[key].tipo }; });
 }
 
+const APORTE_STAT_MAX = 32;
+const APORTE_EXP_MAX = 99;
+
 function aportesValidos(lista) {
   if (!Array.isArray(lista)) return null;
   const out = [];
@@ -52,17 +50,17 @@ function aportesValidos(lista) {
   for (let i = 0; i < lista.length; i++) {
     const it = lista[i];
     if (!it || typeof it !== 'object' || Array.isArray(it)) return null;
-    const id = it.id;
+    const stat = it.stat;
+    const exp = it.exp;
     const fuente = it.fuente;
-    const aporte = it.aporte;
-    if (typeof id !== 'string' || !/^[a-z][a-z0-9]*$/.test(id)) return null;
+    if (typeof stat !== 'string' || !stat.trim() || stat !== stat.trim() || Array.from(stat).length > APORTE_STAT_MAX) return null;
     if (fuente !== 'creacion' && fuente !== 'uso') return null;
-    if (!proyectoInt(aporte, 1, 3)) return null;
-    const key = id + '\n' + fuente;
+    if (!(proyectoInt(exp, 1, APORTE_EXP_MAX))) return null;
+    const key = stat + '\n' + fuente;
     if (seen[key]) return null;
     if (Object.keys(it).length !== 3) return null;
     seen[key] = true;
-    out.push({ id: id, aporte: aporte, fuente: fuente });
+    out.push({ stat: stat, exp: exp, fuente: fuente });
   }
   return out;
 }
@@ -96,16 +94,6 @@ function withProyecto(record) {
   const p = metaProyecto(proyectoSource);
   if (p) record.proyecto = p;
   return record;
-}
-
-export function setMetaLive(on) {
-  live.on = on !== false;
-  if (live.on) return;
-  for (const slot of slotList) {
-    if (slot.timer) clearTimeout(slot.timer);
-    slot.timer = 0;
-    slot.pending = null;
-  }
 }
 
 export function registerStats(list) {
@@ -248,6 +236,29 @@ function commit(job) {
   return record;
 }
 
+export function metaDeclararProyecto(slug, version, storage) {
+  try {
+    const store = storeOf(storage);
+    if (!store || !slug) return null;
+    const found = inspect(store, slug);
+    if (found.kind === "corrupt") {
+      try {
+        store.setItem(corruptKey(slug), String(found.raw));
+      } catch {
+      }
+    }
+    const base = found.kind === "valid"
+      ? { ...found.record }
+      : { v: 1, slug: String(slug), version: plainVersion(version), updatedAt: toIso(), stats: {}, logros: [], hitos: {} };
+    const record = withProyecto(base);
+    store.setItem(metaStorageKey(slug), JSON.stringify(record));
+    notify(metaStorageKey(slug), record);
+    return record;
+  } catch {
+    return null;
+  }
+}
+
 function slotFor(storage, slug) {
   let bySlug = slots.get(storage);
   if (!bySlug) {
@@ -268,7 +279,7 @@ function writable(slot) {
 }
 
 function drain(slot) {
-  if (!live.on || !slot.pending || !writable(slot)) return null;
+  if (!slot.pending || !writable(slot)) return null;
   const job = slot.pending;
   slot.pending = null;
   slot.lastWrite = Date.now();
@@ -288,7 +299,7 @@ function arm(slot) {
 }
 
 function enqueue(store, slug, version, payload, now) {
-  if (!live.on || !store || !slug) return null;
+  if (!store || !slug) return null;
   const slot = slotFor(store, slug);
   slot.pending = { store, slug, version, payload, now };
   if (writable(slot)) {
@@ -312,7 +323,6 @@ export function metaUpdate(slug, version, payload = {}, storage, now) {
 
 export function metaBackfill(slug, version, payload = {}, storage, now) {
   try {
-    if (!live.on) return null;
     const store = storeOf(storage);
     if (!store || !slug) return null;
     const found = inspect(store, slug);
@@ -332,7 +342,6 @@ export function scheduleMetaUpdate(slug, version, payload = {}, storage, now) {
 
 export function flushScheduledMeta(storage, slug) {
   try {
-    if (!live.on) return;
     const store = storeOf(storage);
     if (!store) return;
     const bySlug = slots.get(store);

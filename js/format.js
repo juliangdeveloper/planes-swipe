@@ -73,7 +73,5 @@ export function safeHttpUrl(value) {
 }
 
 export function safeImageUrl(value) {
-  const text = String(value ?? "").trim();
-  if (/^img\/[a-z0-9-]+\.svg$/i.test(text)) return text;
-  return safeHttpUrl(text);
+  return safeHttpUrl(value);
 }
